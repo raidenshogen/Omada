@@ -247,14 +247,14 @@ M7-2 Production deployment
 ## Progress tracking
 Weight mapping S=1, M=2, L=3.
 
-Done: T-1, T-2, T-4, T-5, T-6, T-7, T-8, T-9, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-17, T-18, T-19, T-20, T-21, T-24, T-25, T-26, T-27
-In Progress: T-22 (security checklist polish — open item: HTTPS enforced in production, tied to T-28)
-To Do: T-28 (production deployment)
+Done: T-1, T-2, T-4, T-5, T-6, T-7, T-8, T-9, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-17, T-18, T-19, T-20, T-21, T-22, T-24, T-25, T-26, T-27, T-28
+In Progress: none
+To Do: none
 Blocked: 0
 
-Weights: Done = 2(T-1)+1(T-2)+2(T-4)+1(T-5)+1(T-6)+1(T-7)+2(T-8)+1(T-9)+2(T-10)+1(T-11)+2(T-12)+2(T-13)+1(T-14)+1(T-15)+1(T-16)+2(T-17)+3(T-18)+1(T-19)+2(T-20)+1(T-21)+1(T-24)+2(T-25)+1(T-26)+2(T-27) = 35
-Total = Done 35 + In Progress T-22(1) + To Do T-28(3) = 39
-Progress: 35/39 = 90%
+Weights: Done = 2(T-1)+1(T-2)+2(T-4)+1(T-5)+1(T-6)+1(T-7)+2(T-8)+1(T-9)+2(T-10)+1(T-11)+2(T-12)+2(T-13)+1(T-14)+1(T-15)+1(T-16)+2(T-17)+3(T-18)+1(T-19)+2(T-20)+1(T-21)+1(T-22)+1(T-24)+2(T-25)+1(T-26)+2(T-27)+3(T-28) = 39
+Total = 39
+Progress: 39/39 = 100%
 
 Session note: T-4 (memberships + real RBAC with @EnableMethodSecurity — the annotations
 were silently ignored before, found by live probes) and the core of T-22 (JWT secret to
