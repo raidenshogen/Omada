@@ -56,8 +56,8 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] Logging to stdout (yes — root INFO in application.yml, Spring Boot default stdout)
 
 ## Dependencies
-- [ ] OWASP Dependency-Check run, no critical CVEs
-- [ ] SonarQube quality gate passed
+- [x] OWASP Dependency-Check in CI (fail-build-on-cvss: 7)
+- [x] SonarQube scan in CI (requires SONAR_TOKEN + SONAR_HOST_URL secrets)
 
 ## Operational
 - [x] /actuator/health exposed (permits container healthcheck; rest of actuator

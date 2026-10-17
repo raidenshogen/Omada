@@ -142,15 +142,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: SonarQube Scan Placeholder
-        run: |
-          echo "SonarQube scan would run here"
-          echo "Set SONAR_TOKEN secret and configure sonar-project.properties"
-          # Placeholder for SonarQube scan
-          # uses: sonarsource/sonarqube-scan-action@v2
-          # with:
-          #   projectBaseDir: .
-          #   args: -Dsonar.projectKey=omada
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >-
+            -Dsonar.projectKey=omada
+            -Dsonar.sources=backend/src,frontend/src
+            -Dsonar.java.binaries=backend/target
+        # Requires SONAR_TOKEN secret + SONAR_HOST_URL secret to be set in repo settings
 
   owasp-dependency-check:
     name: OWASP Dependency-Check
@@ -159,12 +161,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: OWASP Dependency-Check Placeholder
-        run: |
-          echo "OWASP Dependency-Check would run here"
-          echo "Add OWASP dependency check for Maven and NPM"
-          # Placeholder for OWASP Dependency-Check
-          # uses: dependency-check/Dependency-Check_Action@main
-          # with:
-          #   project: 'omada'
-          #   path: '.'
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'omada'
+          path: '.'
+          fail-build-on-cvss: 7
