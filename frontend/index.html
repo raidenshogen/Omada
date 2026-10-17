@@ -7,6 +7,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- SockJS needs Node's `global` object in the browser -->
+    <script>
+      if (typeof window !== 'undefined' && typeof window.global === 'undefined') {
+        window.global = window;
+      }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
