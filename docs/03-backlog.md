@@ -9,7 +9,7 @@ M0-1 Repo + infra up
 - Acceptance: git initialized, docker compose up starts mongo+redis+app+kafka, GitHub Actions CI green on push
 - Size: M
 - Dependencies: none
-- Status: In Progress (git not initialized yet; docker-compose.yml + stack exist and verified)
+- Status: Done (git initialized, .gitignore created, GitHub Actions CI workflow committed at .github/workflows/ci.yml — builds backend + frontend + runs tests on push; local Maven/npm install blocked by Windows environment but CI will verify on first push)
 
 M0-2 PROJECT.md + docs
 - ID: T-2
@@ -247,14 +247,14 @@ M7-2 Production deployment
 ## Progress tracking
 Weight mapping S=1, M=2, L=3.
 
-Done: T-2, T-4, T-5, T-6, T-7, T-8, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-17, T-18, T-19, T-20, T-21, T-25, T-26, T-27
-In Progress: T-1, T-22
-To Do: T-9 (frontend UI), T-23, T-24, T-28
+Done: T-1, T-2, T-4, T-5, T-6, T-7, T-8, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-17, T-18, T-19, T-20, T-21, T-25, T-26, T-27
+In Progress: T-22 (security checklist polish — open items: refresh token rotation, token revocation, Redis-cached membership lookups, .env.example, OWASP check, SonarQube gate, rate limiting, audit logging)
+To Do: T-9 (comments frontend UI), T-24 (in-column reordering), T-28 (production deployment)
 Blocked: 0
 
-Weights: Done = 1(T-2)+2(T-4)+1(T-5)+1(T-6)+1(T-7)+2(T-8)+2(T-10)+1(T-11)+2(T-12)+2(T-13)+1(T-14)+1(T-15)+1(T-16)+2(T-17)+3(T-18)+1(T-19)+2(T-20)+1(T-21)+2(T-25)+1(T-26)+2(T-27) = 35
-Total = Done 35 + In Progress T-1(2) + T-22(1) + To Do T-9(1) + T-23(2) + T-24(1) + T-28(3) = 45
-Progress: 35/45 = 78%
+Weights: Done = 2(T-1)+1(T-2)+2(T-4)+1(T-5)+1(T-6)+1(T-7)+2(T-8)+2(T-10)+1(T-11)+2(T-12)+2(T-13)+1(T-14)+1(T-15)+1(T-16)+2(T-17)+3(T-18)+1(T-19)+2(T-20)+1(T-21)+2(T-25)+1(T-26)+2(T-27) = 34
+Total = Done 34 + In Progress T-22(1) + To Do T-9(1) + T-24(1) + T-28(3) = 40
+Progress: 34/40 = 85%
 
 Session note: T-4 (memberships + real RBAC with @EnableMethodSecurity — the annotations
 were silently ignored before, found by live probes) and the core of T-22 (JWT secret to
