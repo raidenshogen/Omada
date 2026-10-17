@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 @Data @NoArgsConstructor @AllArgsConstructor
 public class CreateBoardRequest {
-    @NotBlank
+    // workspaceId is set by the controller from the @PathVariable, not from the client
     public String workspaceId;
     @NotBlank
     public String title;
