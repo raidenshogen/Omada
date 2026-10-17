@@ -52,7 +52,8 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 ## Data protection
 - [x] MongoDB connection via URI env var
 - [x] UserResponse exposes only id/email/name (never passwordHash)
-- [ ] Audit logging for auth events (register/login/denials)
+- [x] Audit logging for auth events (register/login/refresh/logout via SLF4J, no passwords logged)
+- [x] Logging to stdout (yes — root INFO in application.yml, Spring Boot default stdout)
 
 ## Dependencies
 - [ ] OWASP Dependency-Check run, no critical CVEs
