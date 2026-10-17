@@ -248,9 +248,9 @@ export default function Board() {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-neutral-50 min-h-screen">
       <div className="flex items-center justify-between mb-6">
-        <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold">
+        <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold text-neutral-900 tracking-tight">
           {boardTitle}
         </motion.h2>
         {/* live presence: avatar circles for everyone on this board */}
@@ -259,29 +259,27 @@ export default function Board() {
             <div
               key={p.userId}
               title={p.name}
-              className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs border-2 border-white uppercase"
+              className="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] border-2 border-white uppercase font-mono font-medium"
             >
-              {(p.name || '?').slice(0, 1)}
+              {(p.name || '?').slice(0, 1).toUpperCase()}
             </div>
           ))}
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">{error}</div>
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-700 text-sm rounded-lg">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-gray-500">Loading board…</div>
+        <div className="text-neutral-500">Loading board…</div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4">
           {lists.map((list) => (
             <motion.div
               key={list.id}
               layout
-              className={`min-w-[280px] bg-white rounded-2xl shadow p-3 transition ${
-                dragOverList === list.id ? 'ring-2 ring-brand-400' : ''
-              }`}
+              className="min-w-[260px] bg-white rounded-xl shadow-soft border border-neutral-200 p-3 transition-all"
               onDragOver={(e) => {
                 e.preventDefault()
                 setDragOverList(list.id)
@@ -289,23 +287,24 @@ export default function Board() {
               onDragLeave={() => setDragOverList((cur) => (cur === list.id ? null : cur))}
               onDrop={() => dropCard(list.id)}
             >
-              <h3 className="font-semibold mb-3 text-gray-700">
-                {list.title} <span className="text-sm text-gray-400">({list.cards.length})</span>
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-neutral-800 text-sm">
+                  {list.title}
+                  <span className="text-xs text-neutral-400 ml-1">({list.cards.length})</span>
+                </h3>
+              </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-h-[100px]">
                 {list.cards.map((card, cardIndex) => (
                   <motion.div
                     key={card.id}
                     layout
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.01 }}
                     draggable
                     onDragStart={() => setDragging({ cardId: card.id, fromListId: list.id })}
                     onDragEnd={() => setDragging(null)}
                     onDragOver={(e) => cardDragOver(e, list, cardIndex)}
-                    className={`bg-gradient-to-r from-brand-50 to-white p-3 rounded-xl shadow-sm border cursor-grab active:cursor-grabbing ${
-                      dragging?.cardId === card.id ? 'opacity-40' : ''
-                    }`}
+                    className="card-base p-3 cursor-pointer mb-1"
                     onClick={() => openEditCard(list.id, card)}
                   >
                     <CardItem title={card.title} description={card.description} />
@@ -317,14 +316,14 @@ export default function Board() {
                 <div className="mt-3 space-y-2">
                   <input
                     autoFocus
-                    className="w-full border p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="input-field"
                     placeholder="Card title"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && submitCard(list.id)}
                   />
                   <textarea
-                    className="w-full border p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="input-field"
                     placeholder="Description (optional)"
                     rows={2}
                     value={newDesc}
@@ -333,11 +332,11 @@ export default function Board() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => submitCard(list.id)}
-                      className="flex-1 bg-brand-600 text-white text-sm py-2 rounded-lg font-medium"
+                      className="flex-1 btn-primary"
                     >
                       Add card
                     </button>
-                    <button onClick={() => setAddingFor(null)} className="px-3 text-sm text-gray-500">
+                    <button onClick={() => setAddingFor(null)} className="flex-1 btn-ghost text-neutral-500 hover:bg-neutral-100">
                       Cancel
                     </button>
                   </div>
@@ -346,7 +345,7 @@ export default function Board() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   onClick={() => openAddForm(list.id)}
-                  className="mt-3 w-full text-sm text-brand-600 hover:underline"
+                  className="mt-3 w-full text-sm text-brand-600 font-medium hover:underline"
                 >
                   + Add card
                 </motion.button>
@@ -358,39 +357,44 @@ export default function Board() {
 
       {/* Edit card dialog (inline modal) */}
       {editingCard && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4" onClick={() => setEditingCard(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditingCard(null)}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md"
+            className="bg-white rounded-2xl shadow-card-hover p-6 w-full max-w-md border border-neutral-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-semibold text-lg mb-4">Edit card</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg text-neutral-900">Edit card</h3>
+              <button onClick={() => setEditingCard(null)} className="text-neutral-400 hover:text-neutral-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
             <input
-              className="w-full border p-2 rounded-lg mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="input-field mb-3"
               placeholder="Title"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
             />
             <textarea
-              className="w-full border p-2 rounded-lg mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="input-field mb-4"
               placeholder="Description"
               rows={3}
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
             />
 
-            {/* Comments: list + add form, loaded when the card opens */}
             <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2">Comments</h4>
-              {commentsError && <div className="text-xs text-red-600 mb-2">{commentsError}</div>}
-              <div className="space-y-2 max-h-40 overflow-y-auto mb-2">
+              <h4 className="font-semibold text-sm text-neutral-700 mb-2">Comments</h4>
+              {commentsError && <div className="mb-2 text-xs text-red-600">{commentsError}</div>}
+              <div className="space-y-2 max-h-40 overflow-y-auto mb-3">
                 {comments.length === 0 ? (
-                  <div className="text-xs text-gray-400">No comments yet</div>
+                  <div className="text-xs text-neutral-400">No comments yet</div>
                 ) : (
                   comments.map((c) => (
-                    <div key={c.id} className="text-sm bg-gray-50 rounded-lg p-2">
-                      <div className="text-xs text-gray-400 mb-1">{c.authorId || 'user'}</div>
+                    <div key={c.id} className="text-sm bg-neutral-50 rounded-lg p-2">
+                      <div className="text-xs text-neutral-400 mb-1">{c.authorId || 'user'}</div>
                       {c.body}
                     </div>
                   ))
@@ -398,7 +402,7 @@ export default function Board() {
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 border p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="flex-1 border border-neutral-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
                   placeholder="Add a comment…"
                   value={commentBody}
                   onChange={(e) => setCommentBody(e.target.value)}
@@ -406,7 +410,7 @@ export default function Board() {
                 />
                 <button
                   onClick={submitComment}
-                  className="px-3 py-2 rounded-lg text-sm bg-gray-800 text-white"
+                  className="px-3 py-2 rounded-lg text-sm bg-brand-600 text-white hover:bg-brand-700"
                 >
                   Comment
                 </button>
@@ -414,13 +418,13 @@ export default function Board() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={saveCard} className="flex-1 bg-brand-600 text-white py-2 rounded-lg text-sm font-medium">
+              <button onClick={saveCard} className="flex-1 btn-primary">
                 Save
               </button>
               <button onClick={deleteCard} className="px-4 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50">
                 Delete
               </button>
-              <button onClick={() => setEditingCard(null)} className="px-4 py-2 rounded-lg text-sm text-gray-500">
+              <button onClick={() => setEditingCard(null)} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-100">
                 Cancel
               </button>
             </div>
