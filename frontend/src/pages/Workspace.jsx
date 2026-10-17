@@ -16,13 +16,11 @@ export default function Workspace() {
   const workspaceTitle = location.state?.title || 'Workspace'
 
   const [boards, setBoards] = useState([])
-  const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [creatingDoc, setCreatingDoc] = useState(false)
-  const [newDocTitle, setNewDocTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -30,13 +28,9 @@ export default function Workspace() {
       setLoading(true)
       setError('')
       try {
-        const [boardsRes, docsRes] = await Promise.all([
-          api.get(`/workspaces/${workspaceId}/boards`),
-          api.get(`/workspaces/${workspaceId}/documents`),
-        ])
+        const boardsRes = await api.get(`/workspaces/${workspaceId}/boards`)
         if (!cancelled) {
           setBoards(boardsRes.data || [])
-          setDocuments(docsRes.data || [])
         }
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || 'Could not load boards')
@@ -50,6 +44,15 @@ export default function Workspace() {
     }
   }, [workspaceId])
 
+  const defaultCardFor = (listTitle) => {
+    switch (listTitle) {
+      case 'Todo': return 'Design the homepage'
+      case 'Doing': return 'Set up the project structure'
+      case 'Done': return 'Create the workspace'
+      default: return 'Add your first task'
+    }
+  }
+
   const createBoard = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
@@ -57,17 +60,24 @@ export default function Workspace() {
     try {
       const res = await api.post(`/workspaces/${workspaceId}/boards`, {
         title: newTitle.trim(),
-        description: '',
+        description: newDesc.trim(),
       })
-      // Seed the board with the default columns so it opens ready to use
+      // Seed the board with the default columns and starter cards so it opens ready to use
       const boardId = res.data.id
       await Promise.all(
         DEFAULT_LISTS.map((title, i) =>
-          api.post(`/boards/${boardId}/lists`, { title, position: i })
+          api.post(`/boards/${boardId}/lists`, { title, position: i }).then((listRes) =>
+            api.post(`/boards/${boardId}/lists/${listRes.data.id}/cards`, {
+              title: defaultCardFor(title),
+              description: `Example task in ${title}`,
+              position: 0,
+            })
+          )
         )
       )
       setBoards((b) => [...b, res.data])
       setNewTitle('')
+      setNewDesc('')
     } catch (e) {
       setError(e?.response?.data?.message || 'Could not create the board')
     } finally {
@@ -77,25 +87,6 @@ export default function Workspace() {
 
   const openBoard = (board) => {
     navigate(`/board/${board.id}`, { state: { title: board.title } })
-  }
-
-  const createDocument = async () => {
-    if (!newDocTitle.trim()) return
-    setCreatingDoc(true)
-    setError('')
-    try {
-      const res = await api.post(`/workspaces/${workspaceId}/documents`, { title: newDocTitle.trim() })
-      setDocuments((d) => [res.data, ...d])
-      navigate(`/doc/${res.data.id}`, { state: { title: res.data.title } })
-    } catch (e) {
-      setError(e?.response?.data?.message || 'Could not create the document')
-    } finally {
-      setCreatingDoc(false)
-    }
-  }
-
-  const openDocument = (doc) => {
-    navigate(`/doc/${doc.id}`, { state: { title: doc.title } })
   }
 
   return (
@@ -134,54 +125,19 @@ export default function Workspace() {
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createBoard()}
           />
+          <textarea
+            className="w-full border p-2 rounded-lg mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="Description (optional)"
+            rows={2}
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+          />
           <button
             onClick={createBoard}
             disabled={creating}
             className="w-full bg-brand-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           >
             {creating ? 'Creating…' : 'Create board'}
-          </button>
-        </div>
-      </div>
-
-      <h3 className="text-lg font-semibold mt-8 mb-3">Documents</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {documents.map((doc) => (
-          <motion.button
-            key={doc.id}
-            whileHover={{ y: -4 }}
-            onClick={() => openDocument(doc)}
-            className="p-4 bg-white rounded-xl shadow text-left"
-          >
-            <h4 className="font-semibold">{doc.title || 'Untitled'}</h4>
-            <span className="inline-block mt-2 text-brand-600 text-sm font-medium">Open doc →</span>
-          </motion.button>
-        ))}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          onClick={createDocument}
-          disabled={creatingDoc}
-          className="p-4 bg-white rounded-xl shadow text-center text-brand-600 font-medium"
-        >
-          {creatingDoc ? 'Creating…' : '+ New document'}
-        </motion.button>
-      </div>
-      <div className="mt-4 p-4 bg-white rounded-xl shadow">
-        <h3 className="font-semibold mb-3">New document</h3>
-        <div className="flex gap-2">
-          <input
-            className="flex-1 border p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            placeholder="Document name"
-            value={newDocTitle}
-            onChange={(e) => setNewDocTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && createDocument()}
-          />
-          <button
-            onClick={createDocument}
-            disabled={creatingDoc}
-            className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-          >
-            {creatingDoc ? 'Creating…' : 'Create'}
           </button>
         </div>
       </div>
