@@ -5,6 +5,7 @@ import com.omada.realtime.dto.request.RegisterRequest;
 import com.omada.realtime.dto.request.RefreshRequest;
 import com.omada.realtime.dto.response.AuthResponse;
 import com.omada.realtime.dto.response.UserResponse;
+import com.omada.realtime.security.RefreshTokenService;
 import com.omada.realtime.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -17,7 +18,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final UserService userService;
-    public AuthController(UserService userService){ this.userService = userService; }
+    private final RefreshTokenService refreshTokenService;
+    public AuthController(UserService userService,
+                          RefreshTokenService refreshTokenService){
+        this.userService = userService;
+        this.refreshTokenService = refreshTokenService;
+    }
 
     @PostMapping("/register")
     public AuthResponse register(@Valid @RequestBody RegisterRequest req){
@@ -32,6 +38,11 @@ public class AuthController {
     @PostMapping("/refresh")
     public AuthResponse refresh(@Valid @RequestBody RefreshRequest req){
         return userService.refresh(req);
+    }
+
+    @PostMapping("/logout")
+    public void logout(@Valid @RequestBody RefreshRequest req){
+        refreshTokenService.revoke(req.refreshToken);
     }
 
     @GetMapping("/me")

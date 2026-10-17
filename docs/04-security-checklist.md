@@ -10,8 +10,8 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] @EnableMethodSecurity enabled — @PreAuthorize actually enforced (was silently
       ignored before; caught by live RBAC probes)
 - [x] JWT secret read from JWT_SECRET env var (dev fallback documented as dev-only)
-- [ ] Refresh token rotation (single fixed refresh token per login)
-- [ ] Token revocation list for logout (tokens valid until expiry)
+- [x] Refresh token rotation (old token revoked on each refresh; Redis-backed store with 7-day TTL)
+- [x] Token revocation list for logout (POST /auth/logout revokes the refresh token in Redis)
 
 ## Authorization
 - [x] Roles: OWNER > ADMIN > MEMBER > VIEWER with a real hierarchy in MembershipService

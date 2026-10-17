@@ -11,6 +11,7 @@ import com.omada.realtime.repository.UserRepository;
 import com.omada.realtime.service.UserService;
 import com.omada.realtime.security.IdGenerator;
 import com.omada.realtime.security.JwtUtil;
+import com.omada.realtime.security.RefreshTokenService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,18 +21,21 @@ import java.util.UUID;
 
 /**
  * User service implementation with BCrypt password hashing
- * and JWT access/refresh token issuance.
+ * and JWT access/refresh token issuance with refresh rotation.
  */
 @Service
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final RefreshTokenService refreshTokenService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper,
+                           RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Override
@@ -51,6 +55,7 @@ public class UserServiceImpl implements UserService {
         resp.accessToken = JwtUtil.generateAccess(user.getId().toString());
         resp.refreshToken = JwtUtil.generateRefresh(user.getId().toString());
         resp.user = userResponse;
+        refreshTokenService.store(resp.refreshToken, user.getId().toString());
         return resp;
     }
 
@@ -65,19 +70,31 @@ public class UserServiceImpl implements UserService {
         resp.accessToken = JwtUtil.generateAccess(user.getId().toString());
         resp.refreshToken = JwtUtil.generateRefresh(user.getId().toString());
         resp.user = userResponse;
+        refreshTokenService.store(resp.refreshToken, user.getId().toString());
         return resp;
     }
 
     @Override
     public AuthResponse refresh(RefreshRequest req) {
+        if (!refreshTokenService.validate(req.refreshToken)) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
         String subject = JwtUtil.validate(req.refreshToken);
         if (subject == null) {
             throw new IllegalArgumentException("Invalid refresh token");
         }
+        // Rotate: revoke the old refresh token before issuing a new one
+        refreshTokenService.revoke(req.refreshToken);
         AuthResponse resp = new AuthResponse();
         resp.accessToken = JwtUtil.generateAccess(subject);
         resp.refreshToken = JwtUtil.generateRefresh(subject);
+        refreshTokenService.store(resp.refreshToken, subject);
         return resp;
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
     }
 
     @Override
