@@ -42,7 +42,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] CORS locked to http://localhost:5173 in SecurityConfig + application.yml
 - [x] WebSocket CONNECT requires a valid JWT (Authorization header, validated in
       WebSocketConfig interceptor; invalid/missing token rejected at CONNECT)
-- [ ] HTTPS enforced in production (local-only deployment for now)
+- [x] HTTPS enforced in production (Nginx 443 SSL → 80 redirect, server.ssl in prod profile, deployment docs in DEPLOYMENT.md)
 
 ## Error handling
 - [x] GlobalExceptionHandler: consistent {"message":"..."} bodies

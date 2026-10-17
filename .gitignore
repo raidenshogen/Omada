@@ -41,6 +41,7 @@ Thumbs.db
 
 # Docker / Compose
 .docker/
+nginx/certs/
 
 # Test containers / reports
 test-reports/

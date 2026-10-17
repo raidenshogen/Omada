@@ -59,3 +59,19 @@ jwt:
   secret: ${JWT_SECRET:change-me-please-min-256bits}
   access-token-validity: ${JWT_ACCESS_VALIDITY:900000}
   refresh-token-validity: ${JWT_REFRESH_VALIDITY:604800000}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+server:
+  port: 8080
+  ssl:
+    enabled: true
+    key-store: /etc/nginx/certs/omada.p12
+    key-store-password: ${SSL_KEYSTORE_PASSWORD:change-me}
+    key-store-type: PKCS12
+    key-alias: localhost
+  tomcat:
+    max-http-post-size: 10MB
