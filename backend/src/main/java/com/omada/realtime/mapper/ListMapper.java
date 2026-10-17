@@ -1,0 +1,1 @@
+package com.omada.realtime.mapper; import com.omada.realtime.dto.request.CreateListRequest; import com.omada.realtime.dto.response.ListResponse; import com.omada.realtime.entity.TaskList; import org.mapstruct.Mapper; @Mapper(componentModel = "spring") public interface ListMapper { TaskList toEntity(CreateListRequest req); ListResponse toResponse(TaskList list); }

@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: realtime-collab
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/omada_test}
+  redis:
+    host: localhost
+    port: 6379
+
+server:
+  port: 8080

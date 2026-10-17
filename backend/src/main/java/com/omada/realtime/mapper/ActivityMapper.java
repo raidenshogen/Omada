@@ -1,0 +1,1 @@
+package com.omada.realtime.mapper; import com.omada.realtime.dto.response.ActivityResponse; import com.omada.realtime.entity.Activity; import org.mapstruct.Mapper; @Mapper(componentModel = "spring") public interface ActivityMapper { ActivityResponse toResponse(Activity a); }

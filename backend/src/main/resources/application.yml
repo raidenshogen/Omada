@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: realtime-collab
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+    consumer:
+      group-id: omada-activity-feed
+      auto-offset-reset: earliest
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/omada}
+      uuid-representation: standard
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+    default-property-inclusion: non_null
+  mapstruct:
+    unmappedTargetPolicy: WARN
+  main:
+    allow-bean-definition-overriding: true
+  mvc:
+    cors:
+      allowed-origins: http://localhost:5173,http://localhost:3000
+      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+  websocket:
+    allowed-origins: http://localhost:5173
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    org.springframework.data.mongodb: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+jwt:
+  secret: ${JWT_SECRET:change-me-please-min-256bits}
+  access-token-validity: ${JWT_ACCESS_VALIDITY:900000}
+  refresh-token-validity: ${JWT_REFRESH_VALIDITY:604800000}

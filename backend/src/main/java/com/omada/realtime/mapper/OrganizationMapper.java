@@ -1,0 +1,3 @@
+package com.omada.realtime.mapper; import com.omada.realtime.dto.request.CreateOrganizationRequest; import com.omada.realtime.dto.response.OrganizationResponse; import com.omada.realtime.entity.Organization; import org.mapstruct.Mapper;
+
+@Mapper(componentModel = "spring") public interface OrganizationMapper { Organization toEntity(CreateOrganizationRequest req); OrganizationResponse toResponse(Organization org); }
