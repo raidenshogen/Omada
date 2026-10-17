@@ -7,10 +7,16 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- SockJS needs Node's `global` object in the browser -->
+    <!-- SockJS needs Node's `global`, `process`, and `Buffer` in the browser -->
     <script>
       if (typeof window !== 'undefined' && typeof window.global === 'undefined') {
         window.global = window;
+      }
+      if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
+        window.process = { env: {} };
+      }
+      if (typeof window !== 'undefined' && typeof window.Buffer === 'undefined') {
+        window.Buffer = window.Buffer || { from: (s) => new Uint8Array(s ? s.split('').map(c => c.charCodeAt(0)) : []) };
       }
     </script>
     <script type="module" src="/src/main.jsx"></script>
