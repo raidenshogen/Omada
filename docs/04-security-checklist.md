@@ -30,7 +30,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] AddMembershipRequest / UpdateRoleRequest validated (@NotBlank + role whitelist)
 - [x] @Valid on controller request bodies
 - [~] CreateBoardRequest / CreateCardRequest / CreateListRequest lack constraints
-- [ ] Request size limits configured
+- [x] Request size limits configured (server.tomcat.max-http-post-size, spring.servlet.multipart max 10MB)
 
 ## Secrets management
 - [x] JWT secret from env (JWT_SECRET), no hardcoded production secret
