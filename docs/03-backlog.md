@@ -248,7 +248,7 @@ M7-2 Production deployment
 Weight mapping S=1, M=2, L=3.
 
 Done: T-1, T-2, T-4, T-5, T-6, T-7, T-8, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-17, T-18, T-19, T-20, T-21, T-25, T-26, T-27
-In Progress: T-22 (security checklist polish — open items: Redis-cached membership lookups, DTO validation constraints, HTTPS in production, OWASP check, SonarQube gate, rate limiting, audit logging)
+In Progress: T-22 (security checklist polish — open items: HTTPS in production, OWASP check, SonarQube gate, rate limiting, audit logging)
 To Do: T-9 (comments frontend UI), T-24 (in-column reordering), T-28 (production deployment)
 Blocked: 0
 
