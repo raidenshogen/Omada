@@ -29,7 +29,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] @NotBlank on RegisterRequest, LoginRequest
 - [x] AddMembershipRequest / UpdateRoleRequest validated (@NotBlank + role whitelist)
 - [x] @Valid on controller request bodies
-- [~] CreateBoardRequest / CreateCardRequest / CreateListRequest lack constraints
+- [x] CreateBoardRequest / CreateCardRequest / CreateListRequest have @NotBlank constraints
 - [x] Request size limits configured (server.tomcat.max-http-post-size, spring.servlet.multipart max 10MB)
 
 ## Secrets management
