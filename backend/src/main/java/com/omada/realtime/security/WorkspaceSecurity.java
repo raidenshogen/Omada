@@ -7,8 +7,10 @@ import com.omada.realtime.repository.BoardRepository;
 import com.omada.realtime.repository.CardRepository;
 import com.omada.realtime.service.MembershipService;
 import com.omada.realtime.service.WorkspaceService;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -33,15 +35,20 @@ public class WorkspaceSecurity {
     private final WorkspaceService workspaces;
     private final BoardRepository boards;
     private final CardRepository cards;
+    private final StringRedisTemplate redis;
+
+    private static final Duration WORKSPACE_ORG_TTL = Duration.ofMinutes(10);
 
     public WorkspaceSecurity(MembershipService memberships,
                              WorkspaceService workspaces,
                              BoardRepository boards,
-                             CardRepository cards) {
+                             CardRepository cards,
+                             StringRedisTemplate redis) {
         this.memberships = memberships;
         this.workspaces = workspaces;
         this.boards = boards;
         this.cards = cards;
+        this.redis = redis;
     }
 
     /** Any membership role (even VIEWER) may read organization data. */
@@ -129,9 +136,17 @@ public class WorkspaceSecurity {
 
     /** Resolves which organization a workspace belongs to (null if unknown). */
     private String workspaceOrg(String workspaceId) {
+        String cacheKey = "workspace_org:" + workspaceId;
+        String cached = redis.opsForValue().get(cacheKey);
+        if (cached != null) {
+            return cached.isEmpty() ? null : cached;
+        }
         try {
             WorkspaceResponse ws = workspaces.findById(workspaceId);
-            return ws != null ? ws.getOrganizationId() : null;
+            String orgId = ws != null ? ws.getOrganizationId() : null;
+            // Cache negative results (empty string) briefly to avoid repeated DB hits for unknown IDs
+            redis.opsForValue().set(cacheKey, orgId == null ? "" : orgId, WORKSPACE_ORG_TTL);
+            return orgId;
         } catch (Exception e) {
             return null; // unknown workspace -> deny
         }

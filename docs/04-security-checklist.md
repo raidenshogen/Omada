@@ -23,7 +23,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] Live verification matrix executed (MEMBER denied promotion/add, OWNER allowed)
 - [x] Card/list/comment endpoints guarded at method level with @PreAuthorize + WorkspaceSecurity/DocumentSecurity (edit = MEMBER+, read = VIEWER+)
 - [x] Document endpoints fully guarded (create workspace-scoped MEMBER+, read/update/delete via DocumentSecurity VIEWER+/MEMBER+)
-- [ ] Organization membership lookup cached in Redis (direct Mongo query per check)
+- [x] Organization membership lookup cached in Redis (workspace_org key, 10-min TTL)
 
 ## Input validation
 - [x] @NotBlank on RegisterRequest, LoginRequest
