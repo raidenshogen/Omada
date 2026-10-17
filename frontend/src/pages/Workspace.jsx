@@ -22,6 +22,7 @@ export default function Workspace() {
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [creatingDoc, setCreatingDoc] = useState(false)
+  const [newDocTitle, setNewDocTitle] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -79,10 +80,11 @@ export default function Workspace() {
   }
 
   const createDocument = async () => {
+    if (!newDocTitle.trim()) return
     setCreatingDoc(true)
     setError('')
     try {
-      const res = await api.post(`/workspaces/${workspaceId}/documents`, { title: 'Untitled' })
+      const res = await api.post(`/workspaces/${workspaceId}/documents`, { title: newDocTitle.trim() })
       setDocuments((d) => [res.data, ...d])
       navigate(`/doc/${res.data.id}`, { state: { title: res.data.title } })
     } catch (e) {
@@ -163,6 +165,25 @@ export default function Workspace() {
         >
           {creatingDoc ? 'Creating…' : '+ New document'}
         </motion.button>
+      </div>
+      <div className="mt-4 p-4 bg-white rounded-xl shadow">
+        <h3 className="font-semibold mb-3">New document</h3>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 border p-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="Document name"
+            value={newDocTitle}
+            onChange={(e) => setNewDocTitle(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && createDocument()}
+          />
+          <button
+            onClick={createDocument}
+            disabled={creatingDoc}
+            className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+          >
+            {creatingDoc ? 'Creating…' : 'Create'}
+          </button>
+        </div>
       </div>
     </motion.div>
   )
