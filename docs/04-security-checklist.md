@@ -36,7 +36,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] JWT secret from env (JWT_SECRET), no hardcoded production secret
 - [x] Mongo URI from MONGODB_URI env var, Kafka bootstrap from KAFKA_BOOTSTRAP_SERVERS
 - [x] No secrets committed (dev fallback value is a public placeholder)
-- [ ] .env.example file for new developers
+- [x] .env.example file for new developers
 
 ## CORS & transport
 - [x] CORS locked to http://localhost:5173 in SecurityConfig + application.yml
