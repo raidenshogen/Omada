@@ -61,7 +61,7 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 ## Operational
 - [x] /actuator/health exposed (permits container healthcheck; rest of actuator
       stays behind authentication)
-- [ ] Rate limiting on auth endpoints
+- [x] Rate limiting on auth endpoints (RateLimitingFilter, Redis-backed, per-IP per-endpoint: login 5/min, register 3/min, refresh 10/min)
 - [ ] Logging to stdout (yes) — PII review pending
 
 ## Verification log (2026-10-11, live Docker stack)

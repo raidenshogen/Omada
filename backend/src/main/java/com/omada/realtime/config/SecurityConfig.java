@@ -1,5 +1,6 @@
 package com.omada.realtime.config;
 import com.omada.realtime.security.JwtAuthenticationFilter;
+import com.omada.realtime.security.RateLimitingFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,7 +22,12 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter){ this.jwtFilter=jwtFilter; }
+    private final RateLimitingFilter rateLimitingFilter;
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter,
+                          RateLimitingFilter rateLimitingFilter){
+        this.jwtFilter = jwtFilter;
+        this.rateLimitingFilter = rateLimitingFilter;
+    }
 
     @Bean public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -29,6 +35,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**","/ws/**","/actuator/health","/v3/api-docs/**","/swagger-ui/**").permitAll()
                 .anyRequest().authenticated())
+            .addFilterBefore(rateLimitingFilter, JwtAuthenticationFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
