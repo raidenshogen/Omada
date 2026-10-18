@@ -90,7 +90,7 @@ export default function Workspace() {
     }
   }
 
-  const deleteBoard = async (boardId: string) => {
+  const deleteBoard = async (boardId) => {
     if (!window.confirm('Delete this board? This cannot be undone.')) return
     try {
       await api.delete(`/workspaces/${workspaceId}/boards/${boardId}`)
