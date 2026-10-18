@@ -62,19 +62,24 @@ export default function Workspace() {
         title: newTitle.trim(),
         description: newDesc.trim(),
       })
-      // Seed the board with the default columns and starter cards so it opens ready to use
+      // Seed the board with default columns + starter cards.
+      // Seed failures are non-fatal: the board already exists, so we log and continue.
       const boardId = res.data.id
-      await Promise.all(
-        DEFAULT_LISTS.map((title, i) =>
-          api.post(`/boards/${boardId}/lists`, { title, position: i }).then((listRes) =>
-            api.post(`/boards/${boardId}/lists/${listRes.data.id}/cards`, {
-              title: defaultCardFor(title),
-              description: `Example task in ${title}`,
-              position: 0,
-            })
+      try {
+        await Promise.all(
+          DEFAULT_LISTS.map((title, i) =>
+            api.post(`/boards/${boardId}/lists`, { title, position: i }).then((listRes) =>
+              api.post(`/boards/${boardId}/lists/${listRes.data.id}/cards`, {
+                title: defaultCardFor(title),
+                description: `Example task in ${title}`,
+                position: 0,
+              })
+            )
           )
         )
-      )
+      } catch (seedErr) {
+        console.error('Board seeded with warning:', seedErr)
+      }
       setBoards((b) => [...b, res.data])
       setNewTitle('')
       setNewDesc('')
@@ -82,6 +87,16 @@ export default function Workspace() {
       setError(e?.response?.data?.message || 'Could not create the board')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const deleteBoard = async (boardId: string) => {
+    if (!window.confirm('Delete this board? This cannot be undone.')) return
+    try {
+      await api.delete(`/workspaces/${workspaceId}/boards/${boardId}`)
+      setBoards((b) => b.filter((b) => b.id !== boardId))
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Could not delete the board')
     }
   }
 
@@ -112,6 +127,15 @@ export default function Workspace() {
               <h3 className="font-semibold">{board.title}</h3>
               <p className="text-sm text-gray-500 mt-1">{board.description || 'No description'}</p>
               <span className="inline-block mt-2 text-brand-600 text-sm font-medium">Open board →</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteBoard(board.id)
+                }}
+                className="ml-2 text-xs text-red-600 hover:text-red-800 font-medium"
+              >
+                Delete
+              </button>
             </motion.button>
           ))
         )}
