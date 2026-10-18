@@ -13,9 +13,8 @@ public class CreateCardRequest {
     public String description;
     public Integer position;
     public List<String> assignees;
-    @NotBlank
+    // boardId and listId are set by the controller from @PathVariables, not from the client
     public String boardId;
-    @NotBlank
     public String listId;
     public List<LabelDto> labels;
     public Instant dueDate;
