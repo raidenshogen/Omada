@@ -10,4 +10,5 @@ public interface UserService {
     AuthResponse login(LoginRequest req);
     AuthResponse refresh(RefreshRequest req);
     UserResponse me(String userId);
+    UserResponse updateProfile(String userId, com.omada.realtime.dto.request.UpdateProfileRequest req);
 }

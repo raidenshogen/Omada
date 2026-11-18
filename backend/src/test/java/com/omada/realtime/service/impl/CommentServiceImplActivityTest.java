@@ -43,6 +43,7 @@ class CommentServiceImplActivityTest {
     @Mock BoardRepository boardRepo;
     @Mock com.omada.realtime.mapper.CommentMapper mapper;
     @Mock ActivityProducer producer;
+    @Mock com.omada.realtime.repository.UserRepository userRepo;
 
     CommentServiceImpl service;
 
@@ -53,7 +54,7 @@ class CommentServiceImplActivityTest {
 
     @BeforeEach
     void setUp() {
-        service = new CommentServiceImpl(repo, cardRepo, boardRepo, mapper, producer);
+        service = new CommentServiceImpl(repo, cardRepo, boardRepo, mapper, producer, userRepo);
         when(mapper.toEntity(any())).thenReturn(Comment.builder().body("hi").build());
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(cardRepo.findById(CARD_ID)).thenReturn(Optional.of(Card.builder().id(CARD_ID).boardId(BOARD_ID.toString()).build()));

@@ -12,10 +12,9 @@ let client = null
 /** Connect (or return the existing active client) with a JWT for auth. */
 export function connect(token, { onConnect } = {}) {
   if (client && client.active) return client
-  // Connect directly to the backend WebSocket to avoid Vite proxy
-  // socket hang ups with SockJS transport upgrades.
+  const wsUrl = `${window.location.protocol}//${window.location.host}/ws`
   client = new Client({
-    webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+    webSocketFactory: () => new SockJS(wsUrl),
     connectHeaders: { Authorization: `Bearer ${token}` },
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,

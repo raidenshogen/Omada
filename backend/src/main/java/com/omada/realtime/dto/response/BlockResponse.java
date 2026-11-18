@@ -10,4 +10,8 @@ import lombok.AllArgsConstructor;
     public boolean checked;
     public int position;
     public int version;
+    public String createdBy;
+    public String updatedBy;
+    public String createdByName;
+    public String updatedByName;
 }

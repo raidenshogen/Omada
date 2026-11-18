@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/workspaces")
@@ -25,6 +26,12 @@ public class WorkspaceController {
     @PreAuthorize("@workspaceSecurity.isOrgMember(#orgId, authentication.name)")
     public List<WorkspaceResponse> byOrg(@RequestParam String orgId){
         return service.findByOrg(orgId);
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("@workspaceSecurity.canListUserWorkspaces(authentication.name)")
+    public List<WorkspaceResponse> mine(Authentication authentication) {
+        return service.findForUser(authentication.getName());
     }
 
     @GetMapping("/{id}")

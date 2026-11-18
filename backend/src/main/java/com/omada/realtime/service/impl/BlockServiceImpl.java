@@ -11,6 +11,7 @@ import com.omada.realtime.event.DocumentChangedEvent;
 import com.omada.realtime.mapper.BlockMapper;
 import com.omada.realtime.repository.BlockRepository;
 import com.omada.realtime.repository.DocumentRepository;
+import com.omada.realtime.repository.UserRepository;
 import com.omada.realtime.security.ActorContext;
 import com.omada.realtime.security.IdGenerator;
 import com.omada.realtime.service.ActivityProducer;
@@ -25,26 +26,52 @@ import java.util.stream.Collectors;
 
 @Service
 public class BlockServiceImpl implements BlockService {
-
     private final BlockRepository repo;
     private final DocumentRepository documentRepo;
     private final BlockMapper mapper;
     private final ActivityProducer producer;
     private final ApplicationEventPublisher events;
+    private final UserRepository userRepository;
 
     public BlockServiceImpl(BlockRepository repo, DocumentRepository documentRepo, BlockMapper mapper,
-                            ActivityProducer producer, ApplicationEventPublisher events) {
+                            ActivityProducer producer, ApplicationEventPublisher events, UserRepository userRepository) {
         this.repo = repo;
         this.documentRepo = documentRepo;
         this.mapper = mapper;
         this.producer = producer;
         this.events = events;
+        this.userRepository = userRepository;
+    }
+
+    private String userDisplayName(String id) {
+        if (id == null) return null;
+        if ("system".equals(id)) return "System";
+        try {
+            return userRepository.findById(UUID.fromString(id))
+                    .map(u -> {
+                        if (u.getName() != null && !u.getName().isBlank()) return u.getName();
+                        return u.getEmail() != null ? u.getEmail() : id;
+                    })
+                    .orElse(id);
+        } catch (Exception e) {
+            return id;
+        }
+    }
+
+    private void enrich(BlockResponse r, Document doc) {
+        if (r.createdBy == null && doc != null) r.createdBy = doc.getCreatedBy();
+        if (r.updatedBy == null && doc != null) r.updatedBy = doc.getCreatedBy();
+        if (r.createdBy != null) r.createdByName = userDisplayName(r.createdBy);
+        if (r.updatedBy != null) r.updatedByName = userDisplayName(r.updatedBy);
     }
 
     @Override
     public List<BlockResponse> findByDocument(String documentId) {
-        return repo.findByDocumentIdOrderByPositionAsc(documentId).stream()
-                .map(mapper::toResponse).collect(Collectors.toList());
+        Document doc = documentRepo.findById(UUID.fromString(documentId)).orElse(null);
+        List<Block> blocks = repo.findByDocumentIdOrderByPositionAsc(documentId);
+        List<BlockResponse> res = blocks.stream().map(mapper::toResponse).collect(Collectors.toList());
+        res.forEach(r -> enrich(r, doc));
+        return res;
     }
 
     @Override
@@ -57,11 +84,17 @@ public class BlockServiceImpl implements BlockService {
         if (req.checked != null) block.setChecked(req.checked);
         if (req.position != null) block.setPosition(req.position);
         block.setVersion(1);
-        block.setCreatedAt(Instant.now());
-        block.setUpdatedAt(Instant.now());
+        Instant now = Instant.now();
+        block.setCreatedAt(now);
+        block.setUpdatedAt(now);
+        String actor = ActorContext.idOrSystem();
+        block.setCreatedBy(actor);
+        block.setUpdatedBy(actor);
         block = repo.save(block);
-        emit(doc, block, "BLOCK_CREATED");
-        return mapper.toResponse(block);
+        BlockResponse r = mapper.toResponse(block);
+        enrich(r, doc);
+        emit(doc, block, "BLOCK_CREATED", r);
+        return r;
     }
 
     @Override
@@ -75,11 +108,14 @@ public class BlockServiceImpl implements BlockService {
         if (req.checked != null) block.setChecked(req.checked);
         if (req.position != null) block.setPosition(req.position);
         block.setUpdatedAt(Instant.now());
+        block.setUpdatedBy(ActorContext.idOrSystem());
         block.setVersion(block.getVersion() + 1);
         block = repo.save(block);
         Document doc = documentRepo.findById(UUID.fromString(block.getDocumentId())).orElse(null);
-        emit(doc, block, "BLOCK_UPDATED");
-        return mapper.toResponse(block);
+        BlockResponse r = mapper.toResponse(block);
+        enrich(r, doc);
+        emit(doc, block, "BLOCK_UPDATED", r);
+        return r;
     }
 
     @Override
@@ -87,11 +123,12 @@ public class BlockServiceImpl implements BlockService {
         Block block = repo.findById(UUID.fromString(id)).orElseThrow();
         Document doc = documentRepo.findById(UUID.fromString(block.getDocumentId())).orElse(null);
         repo.delete(block);
-        emit(doc, block, "BLOCK_DELETED");
+        BlockResponse r = mapper.toResponse(block);
+        enrich(r, doc);
+        emit(doc, block, "BLOCK_DELETED", r);
     }
 
-    /** Broadcasts a block delta to editors and records a DOCUMENT_EDITED feed item. */
-    private void emit(Document doc, Block block, String type) {
+    private void emit(Document doc, Block block, String type, BlockResponse enriched) {
         String workspaceId = doc != null ? doc.getWorkspaceId() : null;
         String boardId = doc != null ? doc.getBoardId() : null;
         String documentId = block.getDocumentId();
@@ -104,6 +141,6 @@ public class BlockServiceImpl implements BlockService {
                 .entityId(documentId)
                 .createdAt(Instant.now())
                 .build());
-        events.publishEvent(new DocumentChangedEvent(type, documentId, workspaceId, mapper.toResponse(block)));
+        events.publishEvent(new DocumentChangedEvent(type, documentId, workspaceId, enriched));
     }
 }

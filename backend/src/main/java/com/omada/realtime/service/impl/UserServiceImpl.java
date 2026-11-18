@@ -3,6 +3,7 @@ package com.omada.realtime.service.impl;
 import com.omada.realtime.dto.request.LoginRequest;
 import com.omada.realtime.dto.request.RegisterRequest;
 import com.omada.realtime.dto.request.RefreshRequest;
+import com.omada.realtime.dto.request.UpdateProfileRequest;
 import com.omada.realtime.dto.response.AuthResponse;
 import com.omada.realtime.dto.response.UserResponse;
 import com.omada.realtime.entity.User;
@@ -19,13 +20,8 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * User service implementation with BCrypt password hashing
- * and JWT access/refresh token issuance with refresh rotation.
- */
 @Service
 public class UserServiceImpl implements UserService {
-
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final RefreshTokenService refreshTokenService;
@@ -49,7 +45,6 @@ public class UserServiceImpl implements UserService {
         user.setCreatedAt(Instant.now());
         user.setUpdatedAt(Instant.now());
         user = userRepository.save(user);
-
         UserResponse userResponse = userMapper.toResponse(user);
         AuthResponse resp = new AuthResponse();
         resp.accessToken = JwtUtil.generateAccess(user.getId().toString());
@@ -83,7 +78,6 @@ public class UserServiceImpl implements UserService {
         if (subject == null) {
             throw new IllegalArgumentException("Invalid refresh token");
         }
-        // Rotate: revoke the old refresh token before issuing a new one
         refreshTokenService.revoke(req.refreshToken);
         AuthResponse resp = new AuthResponse();
         resp.accessToken = JwtUtil.generateAccess(subject);
@@ -93,13 +87,21 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void logout(String refreshToken) {
-        refreshTokenService.revoke(refreshToken);
+    public UserResponse me(String userId) {
+        User user = userRepository.findById(UUID.fromString(userId)).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return userMapper.toResponse(user);
     }
 
     @Override
-    public UserResponse me(String userId) {
+    public UserResponse updateProfile(String userId, UpdateProfileRequest req) {
         User user = userRepository.findById(UUID.fromString(userId)).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!user.getEmail().equals(req.email) && userRepository.findByEmail(req.email) != null) {
+            throw new IllegalArgumentException("Email already in use");
+        }
+        user.setName(req.name);
+        user.setEmail(req.email);
+        user.setUpdatedAt(Instant.now());
+        user = userRepository.save(user);
         return userMapper.toResponse(user);
     }
 }

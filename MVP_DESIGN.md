@@ -5,7 +5,7 @@
 2. Event-driven for realtime: REST for CRUD, WebSocket for live updates
 3. MongoDB flexible schema for boards & documents, versioned for optimistic concurrency
 4. JWT stateless auth, RBAC enforced at service layer
-5. MVP scope: users, workspaces, boards with lists/cards, comments, activity feed. No full document editor yet.
+5. MVP scope: users, workspaces, boards with lists/cards, comments, activity feed. Full collaborative document editor with blocks (paragraph, heading, todo, list) with real-time WebSocket sync.
 
 ## High-Level MongoDB Schema
 
@@ -208,7 +208,7 @@ Why activities collection?
 Append-only event log enables feed, audit, and future analytics without querying full card history.
 
 MVP scope trade-offs:
-- No full document editor, just boards/cards for faster validation
+- Document editor with blocks: paragraph, heading, todo, list — real-time collaboration via WebSocket
 - Comments are card-scoped only
 - No offline sync, just optimistic UI
 - Single Kafka topic per domain for simplicity, partition by workspaceId

@@ -15,9 +15,7 @@ import java.util.List;
  * user id as the authenticated principal into the SecurityContext, so
  * controllers and @PreAuthorize rules can rely on being authenticated.
  */
-@Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    @Override
+public class JwtAuthenticationFilter extends OncePerRequestFilter {    @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         String header = req.getHeader("Authorization");

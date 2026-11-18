@@ -5,9 +5,11 @@ import com.omada.realtime.dto.response.BlockResponse;
 import com.omada.realtime.dto.response.DocumentResponse;
 import com.omada.realtime.dto.response.WorkspaceResponse;
 import com.omada.realtime.entity.Document;
+import com.omada.realtime.repository.BoardMembershipRepository;
 import com.omada.realtime.repository.BoardRepository;
 import com.omada.realtime.repository.CardRepository;
 import com.omada.realtime.repository.DocumentRepository;
+import com.omada.realtime.repository.InvitationRepository;
 import com.omada.realtime.security.DocumentSecurity;
 import com.omada.realtime.security.JwtAuthenticationFilter;
 import com.omada.realtime.security.JwtUtil;
@@ -22,7 +24,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
@@ -31,6 +35,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -53,6 +58,9 @@ class DocumentControllerSecurityTest {
     @MockBean BoardRepository boardRepository;
     @MockBean CardRepository cardRepository;
     @MockBean DocumentRepository documentRepository;
+    @MockBean StringRedisTemplate redis;
+    @MockBean BoardMembershipRepository boardMembershipRepository;
+    @MockBean InvitationRepository invitationRepository;
 
     static final UUID DOC_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
     static final String WS = "33333333-3333-3333-3333-333333333333";
@@ -67,6 +75,9 @@ class DocumentControllerSecurityTest {
         when(workspaceService.findById(WS)).thenReturn(new WorkspaceResponse(WS, ORG, "ws", ""));
         when(documentRepository.findById(DOC_ID))
                 .thenReturn(Optional.of(Document.builder().id(DOC_ID).workspaceId(WS).title("Doc").build()));
+        var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(ops);
+        when(ops.get(anyString())).thenReturn(null);
     }
 
     private void givenRole(String role) {
@@ -135,7 +146,7 @@ class DocumentControllerSecurityTest {
     void memberCanAddBlock() throws Exception {
         givenRole("MEMBER");
         when(blockService.create(eq(DOC_ID.toString()), any()))
-                .thenReturn(new BlockResponse("b1", DOC_ID.toString(), "paragraph", "hi", false, 0, 1));
+                .thenReturn(new BlockResponse("b1", DOC_ID.toString(), "paragraph", "hi", false, 0, 1, null, null, null, null));
         mvc.perform(post("/api/documents/{id}/blocks", DOC_ID)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)

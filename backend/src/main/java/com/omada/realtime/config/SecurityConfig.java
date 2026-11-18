@@ -1,6 +1,5 @@
 package com.omada.realtime.config;
 import com.omada.realtime.security.JwtAuthenticationFilter;
-import com.omada.realtime.security.RateLimitingFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,28 +20,29 @@ import java.util.List;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
-    private final JwtAuthenticationFilter jwtFilter;
-    private final RateLimitingFilter rateLimitingFilter;
-    public SecurityConfig(JwtAuthenticationFilter jwtFilter,
-                          RateLimitingFilter rateLimitingFilter){
-        this.jwtFilter = jwtFilter;
-        this.rateLimitingFilter = rateLimitingFilter;
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter();
     }
 
     @Bean public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationFilter jwtFilter = jwtAuthenticationFilter();
         http.csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**","/ws/**","/actuator/health","/v3/api-docs/**","/swagger-ui/**").permitAll()
+                .requestMatchers("/api/auth/**","/ws/**","/actuator/health","/v3/api-docs/**","/swagger-ui/**","/api/invitations/{token}","/api/invitations/{token}/accept","/api/invitations/{token}/decline").permitAll()
                 .anyRequest().authenticated())
-            .addFilterBefore(rateLimitingFilter, JwtAuthenticationFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "http://localhost",
+                "https://localhost"
+        ));
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

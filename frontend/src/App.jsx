@@ -1,5 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -7,39 +6,40 @@ import Dashboard from './pages/Dashboard'
 import Workspace from './pages/Workspace'
 import Board from './pages/Board'
 import Document from './pages/Document'
+import Profile from './pages/Profile'
+import InviteAccept from './pages/InviteAccept'
 import { useAuthStore } from './store/authStore'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { useEffect } from 'react'
 
-function ProtectedRoute({ children }) {
-  // isAuthenticated is set by login(); accessToken survives reloads via persist,
-  // so accept either to avoid kicking a signed-in user back to the login page.
-  const authed = useAuthStore(s => !!(s.isAuthenticated || s.accessToken))
-  return authed ? children : <Navigate to="/" replace />
-}
-
-export default function App(){
-  const initFromStorage = useAuthStore(s => s.initFromStorage)
+export default function App() {
+  const initFromStorage = useAuthStore((s) => s.initFromStorage)
   // token in storage means a logged-in session (persist rehydrates synchronously,
   // so the sidebar does not flash off/on between reloads)
-  const authed = useAuthStore(s => !!(s.isAuthenticated || s.accessToken))
+  const authed = useAuthStore((s) => !!(s.isAuthenticated || s.accessToken))
+  const location = useLocation()
+  const hideSidebar = location.pathname.startsWith('/doc') && new URLSearchParams(location.search).has('modal')
   useEffect(() => { initFromStorage() }, [])
 
+  // Board and document ids are NOT workspace ids, so those routes must not
+  // use workspaceParam (it compared them against workspace memberships and
+  // always redirected to the dashboard).
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {authed && <Sidebar />}
-      <div className="flex-1 overflow-auto">
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}><Login/></motion.div>} />
-            <Route path="/register" element={<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}><Register/></motion.div>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>} />
-            <Route path="/workspace/:id" element={<ProtectedRoute><Workspace/></ProtectedRoute>} />
-            <Route path="/board/:id" element={<ProtectedRoute><Board/></ProtectedRoute>} />
-            <Route path="/doc/:id" element={<ProtectedRoute><Document/></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AnimatePresence>
-      </div>
+    <div className="flex min-h-screen bg-paper">
+      {authed && !hideSidebar && <Sidebar />}
+      <main className="min-w-0 flex-1">
+        <Routes>
+          <Route path="/" element={authed ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/register" element={authed ? <Navigate to="/dashboard" replace /> : <Register />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/workspace/:id" element={<ProtectedRoute workspaceParam="id"><Workspace /></ProtectedRoute>} />
+          <Route path="/invite/:token" element={<InviteAccept />} />
+          <Route path="/board/:id" element={<ProtectedRoute><Board /></ProtectedRoute>} />
+          <Route path="/doc/:id" element={<ProtectedRoute><Document /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
     </div>
   )
 }

@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
  *  - POST /api/auth/register : 3 requests per minute per IP
  *  - POST /api/auth/refresh  : 10 requests per minute per IP
  */
-@Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final ConcurrentHashMap<String, Integer> LIMITS = new ConcurrentHashMap<>();
@@ -56,7 +55,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
         int limit = LIMITS.get(req.getMethod() + ":" + req.getRequestURI());
         if (count > limit) {
-            res.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
+            res.setStatus(429);
             res.setContentType("application/json");
             res.getWriter().write("{\"message\":\"Too many requests. Try again later.\"}");
             return;

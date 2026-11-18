@@ -1,4 +1,4 @@
-package com.omada.realtime.service;
+package com.omada.realtime.security;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;

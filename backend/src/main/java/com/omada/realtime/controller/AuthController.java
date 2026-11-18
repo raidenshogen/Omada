@@ -3,6 +3,7 @@ package com.omada.realtime.controller;
 import com.omada.realtime.dto.request.LoginRequest;
 import com.omada.realtime.dto.request.RegisterRequest;
 import com.omada.realtime.dto.request.RefreshRequest;
+import com.omada.realtime.dto.request.UpdateProfileRequest;
 import com.omada.realtime.dto.response.AuthResponse;
 import com.omada.realtime.dto.response.UserResponse;
 import com.omada.realtime.security.RefreshTokenService;
@@ -13,10 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Authentication controller for register, login, refresh and me.
- * Emits audit log entries for register/login/refresh/logout events.
- */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -60,7 +57,14 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse me(Authentication authentication){
         String userId = authentication != null ? authentication.getName() : null;
-        // Fallback: for demo, return empty if no auth
         return userService.me(userId != null ? userId : "");
+    }
+
+    @PatchMapping("/me")
+    public UserResponse updateMe(@Valid @RequestBody UpdateProfileRequest req, Authentication authentication){
+        String userId = authentication.getName();
+        UserResponse resp = userService.updateProfile(userId, req);
+        log.info("AUTH_PROFILE_UPDATE userId={}", userId);
+        return resp;
     }
 }

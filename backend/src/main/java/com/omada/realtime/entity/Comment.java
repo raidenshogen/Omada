@@ -16,8 +16,8 @@ public class Comment {
     @Id private UUID id;
     private UUID cardId;
     private UUID authorId;
+    private String authorName;
     private String body;
     private Instant createdAt;
     private Instant updatedAt;
 }
-

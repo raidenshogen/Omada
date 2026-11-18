@@ -256,9 +256,78 @@ Weights: Done = 2(T-1)+1(T-2)+2(T-4)+1(T-5)+1(T-6)+1(T-7)+2(T-8)+1(T-9)+2(T-10)+
 Total = 39
 Progress: 39/39 = 100%
 
-Session note: T-4 (memberships + real RBAC with @EnableMethodSecurity — the annotations
-were silently ignored before, found by live probes) and the core of T-22 (JWT secret to
-env, validation, security checklist rewritten with a live verification log) are done
-and verified live. Remaining known gaps are tracked in docs/04-security-checklist.md
-(card/list/comment method-level guards, Redis caching of membership lookups).
-Next suggested ticket: T-23 CI pipeline (needs git init + GitHub Actions).
+## Milestone M8 — Multi-User Collaboration (Phase 1)
+
+### T-29: Membership entity + repository + service (backend)
+- User story: As a workspace Owner/Admin, I want to manage workspace members with roles
+- Acceptance: Membership entity (userId, workspaceId, role, joinedAt), repository, service with create/findByWorkspace/changeRole/remove, @NotNull validation, Size: M, Dependencies: T-4, Owner: Backend agent
+
+### T-30: Invitation entity + repository + service (backend)
+- User story: As a workspace Owner/Admin, I want to invite someone by email with a 24h-expiring token
+- Acceptance: Invitation entity (token, email, workspaceId, boardId?, role, status, expiresAt), repository, service with create/list/accept/decline/revoke, token UUIDv4, Size: M, Dependencies: T-29, Owner: Backend agent
+
+### T-31: Invitation controller (backend)
+- User story: As a workspace Owner/Admin, I want to create/list/revoke invitations; as invitee, accept/decline
+- Acceptance: POST /api/workspaces/{id}/invitations, GET /api/workspaces/{id}/invitations, GET /api/invitations/{token}, POST /api/invitations/{token}/accept, POST /api/invitations/{token}/decline, DELETE /api/invitations/{id}, Size: M, Dependencies: T-30, Owner: Backend agent
+
+### T-32: Board membership entity + repository + service (backend)
+- User story: As a workspace Admin/Owner, I want to add/remove members from a specific board
+- Acceptance: BoardMembership entity (userId, boardId, joinedAt), repository, service with add/remove/findByBoard, Size: M, Dependencies: T-29, Owner: Backend agent
+
+### T-33: Board membership controller (backend)
+- User story: As a workspace Admin/Owner, I want to manage board members
+- Acceptance: POST /api/boards/{id}/members, GET /api/boards/{id}/members, DELETE /api/boards/{id}/members/{userId}, Size: M, Dependencies: T-32, Owner: Backend agent
+
+### T-34: Authorization guards on existing endpoints (backend)
+- User story: As a workspace member, I want my access enforced on every board/workspace endpoint
+- Acceptance: @PreAuthorize checks on board/workspace/list/card endpoints for workspace membership + board membership where applicable; Viewer blocked from write ops, Size: L, Dependencies: T-29, T-32, T-4, Owner: Backend agent
+
+### T-35: Backend integration tests for membership/invitation/board-member (QA agent)
+- User story: As team I want tests for multi-user endpoints
+- Acceptance: JUnit 5 + Testcontainers integration tests for T-29..T-34 endpoints, RBAC matrix verified (Owner/Admin/Member/Viewer), Size: L, Dependencies: T-29..T-34, Owner: QA agent
+
+### T-36: Auth/Zustand store update — membership & invitation state (frontend)
+- User story: As a user I want my workspace membership and role available in frontend state
+- Acceptance: authStore updated with workspace memberships, role, current workspace context; invitation store with pending invites, Size: M, Dependencies: T-17, Owner: Frontend agent
+
+### T-37: Invitation UI — invite modal, invitation list, accept/decline page (frontend)
+- User story: As a workspace Owner/Admin I want to invite and manage invitations; as invitee I want to accept/decline
+- Acceptance: Invite button opens email/role modal; invitation list shows pending invites with revoke; /invite/{token} page accepts/declines and redirects to workspace, Size: L, Dependencies: T-36, T-31, Owner: Frontend agent
+
+### T-38: Workspace members UI — member list, role change, remove member (frontend)
+- User story: As a workspace Owner/Admin I want to see members, change roles, remove members
+- Acceptance: Members page lists all members with roles; Owner/Admin can change role via dropdown; remove member with confirmation; Viewer cannot see management actions, Size: M, Dependencies: T-36, T-34, Owner: Frontend agent
+
+### T-39: Board members UI — add/remove board members (frontend)
+- User story: As a workspace Admin/Owner I want to assign members to specific boards
+- Acceptance: Board members page (accessible from board header); add member from workspace member list; remove member; size limit per board not enforced in Phase 1, Size: M, Dependencies: T-36, T-33, Owner: Frontend agent
+
+### T-40: Route protection based on roles (frontend)
+- User story: As a Viewer I want read-only access; as non-member I want no access
+- Acceptance: Protected routes check membership + role; Viewer cannot see create/edit/delete buttons; non-member redirected from workspace/board pages, Size: M, Dependencies: T-36, T-34, Owner: Frontend agent
+
+### T-41: Frontend Vitest tests for membership/invitation flows (QA agent)
+- User story: As team I want frontend tests for multi-user
+- Acceptance: Vitest + RTL tests for invitation accept/decline, member list, role change, route guard, Size: M, Dependencies: T-37, T-38, T-39, T-40, Owner: QA agent
+
+### T-42: Security checklist update — docs/04-security-checklist.md (DevOps agent)
+- User story: As team I want security verified for multi-user
+- Acceptance: Checklist updated with invitation token security, RBAC matrix, board access control, no secrets in code, Size: S, Dependencies: T-29..T-34, Owner: DevOps agent
+
+### T-43: CI pipeline update — new tests run on push (DevOps agent)
+- User story: As team I want CI to verify multi-user endpoints
+- Acceptance: GitHub Actions CI runs backend integration tests + frontend Vitest for new tickets, Size: S, Dependencies: T-35, T-41, Owner: DevOps agent
+
+### T-44: Documentation update — PROJECT.md, docs (DevOps agent)
+- User story: As team I want project docs to reflect multi-user features
+- Acceptance: PROJECT.md updated with membership/invitation/board-membership collections and API endpoints; docs/HANDOVER.md updated if needed, Size: S, Dependencies: T-29..T-40, Owner: DevOps agent
+
+## Progress tracking (M8 only)
+Weight mapping S=1, M=2, L=3.
+Done: 0 | In progress: 0 | Blocked: 0 | To do: 16
+Weights: T-29(2)+T-30(2)+T-31(2)+T-32(2)+T-33(2)+T-34(3)+T-35(3)+T-36(2)+T-37(3)+T-38(2)+T-39(2)+T-40(2)+T-41(2)+T-42(1)+T-43(1)+T-44(1) = 29
+
+## Team assignment (3 agents)
+- **Backend agent**: T-29, T-30, T-31, T-32, T-33, T-34
+- **Frontend agent**: T-36, T-37, T-38, T-39, T-40
+- **QA/DevOps agent**: T-35, T-41, T-42, T-43, T-44

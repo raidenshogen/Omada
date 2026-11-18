@@ -16,6 +16,12 @@ public class BoardServiceIntegrationTest extends com.omada.realtime.AbstractInte
     @Autowired
     private BoardRepository boardRepository;
 
+    @Autowired
+    private com.omada.realtime.repository.TaskListRepository taskListRepository;
+
+    @Autowired
+    private com.omada.realtime.repository.CardRepository cardRepository;
+
     @Test
     void createBoard_persistsAndMapsResponse() {
         CreateBoardRequest req = new CreateBoardRequest();
@@ -31,6 +37,13 @@ public class BoardServiceIntegrationTest extends com.omada.realtime.AbstractInte
                 .findByWorkspaceId("11111111-1111-1111-1111-111111111111");
         assertThat(boards).hasSize(1);
         assertThat(boards.get(0).getTitle()).isEqualTo("Sprint Board");
+        String boardId = boards.get(0).getId().toString();
+        assertThat(taskListRepository.findByBoardIdOrderByPositionAsc(boardId))
+                .extracting(com.omada.realtime.entity.TaskList::getTitle)
+                .containsExactly("Todo", "Doing", "Done");
+        assertThat(cardRepository.findByBoardIdOrderByPositionAsc(boardId))
+                .extracting(com.omada.realtime.entity.Card::getTitle)
+                .containsExactly("Design the homepage", "Set up the project structure", "Create the workspace");
     }
 
     @Test

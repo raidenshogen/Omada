@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import api from '../services/api'
 import { useDocumentChannel } from '../hooks/useWebSocket'
+import { useAuthStore } from '../store/authStore'
 
 const BLOCK_TYPES = ['paragraph', 'heading', 'todo', 'list']
 
@@ -32,6 +33,9 @@ export default function Document() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [newType, setNewType] = useState('paragraph')
+  const role = useAuthStore((s) => s.role)
+  const user = useAuthStore((s) => s.user)
+  const canWrite = role !== 'viewer'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -76,7 +80,7 @@ export default function Document() {
   })
 
   const saveTitle = async () => {
-    if (!doc?.title) return
+    if (!canWrite || !doc?.title) return
     try {
       const res = await api.patch(`/documents/${documentId}`, { title: doc.title })
       setDoc(res.data)
@@ -86,6 +90,7 @@ export default function Document() {
   }
 
   const addBlock = async () => {
+    if (!canWrite) return
     try {
       const res = await api.post(`/documents/${documentId}/blocks`, {
         type: newType,
@@ -102,6 +107,7 @@ export default function Document() {
     setBlocks((prev) => prev.map((b) => (b.id === block.id ? { ...b, text } : b)))
 
   const patchBlock = async (block, patch) => {
+    if (!canWrite) return
     upsertBlock({ ...block, ...patch }) // optimistic
     try {
       const res = await api.patch(`/documents/${documentId}/blocks/${block.id}`, {
@@ -116,6 +122,7 @@ export default function Document() {
   }
 
   const deleteBlock = async (block) => {
+    if (!canWrite) return
     try {
       await api.delete(`/documents/${documentId}/blocks/${block.id}`)
       setBlocks((prev) => prev.filter((b) => b.id !== block.id))
@@ -131,6 +138,7 @@ export default function Document() {
           className="text-2xl font-bold bg-transparent border-none focus:outline-none w-full"
           placeholder="Untitled document"
           value={doc?.title || ''}
+          readOnly={!canWrite}
           onChange={(e) => setDoc((prev) => ({ ...prev, title: e.target.value }))}
           onBlur={saveTitle}
         />
@@ -149,6 +157,12 @@ export default function Document() {
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">{error}</div>
+      )}
+
+      {role === 'viewer' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg" role="status">
+          You are a viewer for this workspace. You can view this document, but you cannot make changes.
+        </div>
       )}
 
       {loading ? (
@@ -170,6 +184,7 @@ export default function Document() {
                 <select
                   value={block.type}
                   onChange={(e) => patchBlock(block, { type: e.target.value })}
+                  disabled={!canWrite}
                   className="mt-1 text-xs text-gray-400 bg-transparent focus:outline-none"
                   aria-label="Block type"
                 >
@@ -184,25 +199,34 @@ export default function Document() {
                     type="checkbox"
                     className="mt-2"
                     checked={!!block.checked}
+                    disabled={!canWrite}
                     onChange={(e) => patchBlock(block, { checked: e.target.checked })}
                     aria-label="Toggle todo"
                   />
                 )}
                 <textarea
-                  className={`flex-1 resize-none bg-transparent border-none focus:outline-none ${textClass[block.type] || ''}`}
-                  rows={1}
+                  className={`flex-1 resize-none bg-transparent border-none focus:outline-none ${textClass[block.type] || ''} max-h-48 overflow-y-auto`}
+                  rows={4}
                   placeholder={block.type === 'heading' ? 'Heading' : 'Type something…'}
                   value={block.text || ''}
+                  readOnly={!canWrite}
                   onChange={(e) => changeText(block, e.target.value)}
                   onBlur={(e) => patchBlock(block, { text: e.target.value })}
                 />
-                <button
+                {(() => {
+                  const authorId = block.updatedBy || block.createdBy;
+                  const authorName = block.updatedByName || block.createdByName;
+                  if (!authorId) return null;
+                  const display = authorId === user?.id ? 'You' : (authorName || authorId.slice(0,2).toUpperCase());
+                  return <div className="text-[10px] text-neutral-400 mt-1">by {display}</div>;
+                })()}
+                {canWrite && <button
                   onClick={() => deleteBlock(block)}
                   className="opacity-0 group-hover:opacity-100 text-red-500 text-sm px-1"
                   aria-label="Delete block"
                 >
                   ×
-                </button>
+                </button>}
               </motion.div>
             ))
           )}
@@ -211,6 +235,7 @@ export default function Document() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
+              disabled={!canWrite}
               className="border rounded-lg p-2 text-sm"
               aria-label="New block type"
             >
@@ -222,6 +247,7 @@ export default function Document() {
             </select>
             <button
               onClick={addBlock}
+              disabled={!canWrite}
               className="bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
             >
               Add block

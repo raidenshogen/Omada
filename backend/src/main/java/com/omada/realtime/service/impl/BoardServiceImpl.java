@@ -2,10 +2,16 @@ package com.omada.realtime.service.impl;
 
 import com.omada.realtime.dto.request.CreateBoardRequest;
 import com.omada.realtime.dto.response.BoardResponse;
+import com.omada.realtime.dto.request.CreateCardRequest;
+import com.omada.realtime.dto.request.CreateListRequest;
 import com.omada.realtime.entity.Board;
 import com.omada.realtime.mapper.BoardMapper;
 import com.omada.realtime.repository.BoardRepository;
+import com.omada.realtime.repository.CardRepository;
+import com.omada.realtime.repository.TaskListRepository;
 import com.omada.realtime.service.BoardService;
+import com.omada.realtime.service.CardService;
+import com.omada.realtime.service.TaskListService;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -19,10 +25,20 @@ public class BoardServiceImpl implements BoardService {
 
     private final BoardRepository boardRepository;
     private final BoardMapper boardMapper;
+    private final TaskListService taskListService;
+    private final CardService cardService;
+    private final TaskListRepository taskListRepository;
+    private final CardRepository cardRepository;
 
-    public BoardServiceImpl(BoardRepository boardRepository, BoardMapper boardMapper) {
+    public BoardServiceImpl(BoardRepository boardRepository, BoardMapper boardMapper,
+                            TaskListService taskListService, CardService cardService,
+                            TaskListRepository taskListRepository, CardRepository cardRepository) {
         this.boardRepository = boardRepository;
         this.boardMapper = boardMapper;
+        this.taskListService = taskListService;
+        this.cardService = cardService;
+        this.taskListRepository = taskListRepository;
+        this.cardRepository = cardRepository;
     }
 
     @Override
@@ -32,7 +48,35 @@ public class BoardServiceImpl implements BoardService {
         board.setCreatedAt(Instant.now());
         board.setUpdatedAt(Instant.now());
         board = boardRepository.save(board);
+        try {
+            seedDefaultContent(board.getId().toString());
+        } catch (RuntimeException e) {
+            cardRepository.deleteByBoardId(board.getId().toString());
+            taskListRepository.deleteByBoardId(board.getId().toString());
+            boardRepository.deleteById(board.getId());
+            throw e;
+        }
         return boardMapper.toResponse(board);
+    }
+
+    private void seedDefaultContent(String boardId) {
+        String[] listTitles = {"Todo", "Doing", "Done"};
+        String[] cardTitles = {"Design the homepage", "Set up the project structure", "Create the workspace"};
+        for (int i = 0; i < listTitles.length; i++) {
+            CreateListRequest listRequest = new CreateListRequest();
+            listRequest.boardId = boardId;
+            listRequest.title = listTitles[i];
+            listRequest.position = i;
+            String listId = taskListService.create(listRequest).getId();
+
+            CreateCardRequest cardRequest = new CreateCardRequest();
+            cardRequest.boardId = boardId;
+            cardRequest.listId = listId;
+            cardRequest.title = cardTitles[i];
+            cardRequest.description = "Example task in " + listTitles[i];
+            cardRequest.position = 0;
+            cardService.create(cardRequest);
+        }
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.omada.realtime.AbstractIntegrationTest;
 import com.omada.realtime.dto.request.RefreshRequest;
 import com.omada.realtime.dto.request.RegisterRequest;
 import com.omada.realtime.dto.response.AuthResponse;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 

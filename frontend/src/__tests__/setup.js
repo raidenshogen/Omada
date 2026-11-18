@@ -8,3 +8,7 @@ Object.defineProperty(window, 'localStorage', {
   },
   writable: true
 })
+Object.defineProperty(window, 'scrollTo', {
+  value: () => {},
+  writable: true
+})

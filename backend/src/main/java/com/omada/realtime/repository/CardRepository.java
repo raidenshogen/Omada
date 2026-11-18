@@ -7,6 +7,7 @@ import java.util.UUID;
 @Repository
 public interface CardRepository extends MongoRepository<Card, UUID>{
     List<Card> findByBoardId(String boardId);
+    void deleteByBoardId(String boardId);
     List<Card> findByListId(String listId);
     // ordered reads for the Kanban view and in-column reordering
     List<Card> findByListIdOrderByPositionAsc(String listId);

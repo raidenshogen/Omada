@@ -25,6 +25,38 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] Document endpoints fully guarded (create workspace-scoped MEMBER+, read/update/delete via DocumentSecurity VIEWER+/MEMBER+)
 - [x] Organization membership lookup cached in Redis (workspace_org key, 10-min TTL)
 
+### RBAC matrix (workspace + board endpoints)
+| Endpoint / action | OWNER | ADMIN | MEMBER | VIEWER |
+|-------------------|-------|-------|--------|--------|
+| Create organization | ✓ | — | — | — |
+| List own organizations | ✓ | ✓ | ✓ | ✓ |
+| Update / delete organization | ✓ | — | — | — |
+| List workspace members | ✓ | ✓ | ✓ | — |
+| Add / remove members | ✓ | ✓ | — | — |
+| Change member roles | ✓ | — | — | — |
+| List / get boards | ✓ | ✓ | ✓ | ✓ |
+| Create / update board | ✓ | ✓ | — | — |
+| Delete board | ✓ | — | — | — |
+| Board membership management | ✓ | ✓ | — | — |
+| Card / list / comment read | ✓ | ✓ | ✓ | ✓ |
+| Card / list / comment edit | ✓ | ✓ | ✓ | — |
+
+Matrix status: [x] code-verified — every row backed by a @PreAuthorize expression on the matching controller method (WorkspaceController, BoardController, MembershipController, BoardMembershipController, ListController, CardController, CommentController). Full live-matrix re-probe against a running stack: [ ] open.
+
+### Board access control
+- [x] Board GET endpoints (list + get-by-id) guarded with @workspaceSecurity.canView(...); a non-member / non-org-member receives 403 and the board is not returned or visible (verified: BoardController#byWorkspace and #get both carry canView).
+- [ ] Live probe: non-member requests board → 403/empty; member → 200 — needs a running stack.
+
+### @PreAuthorize on every new endpoint
+- [x] Every controller method in the workspace, board, membership, board-membership, invitation, list, card, comment, document, activity and block controllers carries @PreAuthorize; no unguarded new endpoints found in a controller scan. Blanket rule: any new endpoint must carry @PreAuthorize before merge.
+- [ ] Enforce the rule in CI/PR template (no automated guard yet).
+
+## Invitation tokens
+- [x] Invitation token is UUIDv4 (java.util.UUID.randomUUID, stored as UUID `token`) — verified in Invitation entity + InvitationServiceImpl.
+- [x] Invitation expiresAt set to 24h from creation (Duration.ofHours(24)) — verified in InvitationServiceImpl (TTL = Duration.ofHours(24)).
+- [x] Invitation details / accept / decline endpoints use @PreAuthorize("permitAll"); the unguessable token is the sole grant — verified in InvitationController (GET/POST /api/invitations/{token}, /accept, /decline).
+- [ ] Live probe: valid token accept → 200 + membership created idempotently; random/expired/revoked token → 404 or rejected — needs a running stack.
+
 ## Input validation
 - [x] @NotBlank on RegisterRequest, LoginRequest
 - [x] AddMembershipRequest / UpdateRoleRequest validated (@NotBlank + role whitelist)
@@ -37,9 +69,11 @@ Status legend: [x] done & verified · [~] done with known limits · [ ] open
 - [x] Mongo URI from MONGODB_URI env var, Kafka bootstrap from KAFKA_BOOTSTRAP_SERVERS
 - [x] No secrets committed (dev fallback value is a public placeholder)
 - [x] .env.example file for new developers
+- [x] No secrets in code for multi-user endpoints: JWT_SECRET / MONGODB_URI / KAFKA_BOOTSTRAP_SERVERS read from env only; dev fallbacks are public placeholders (verified in SecurityConfig + application.yml; no hardcoded production values).
 
 ## CORS & transport
 - [x] CORS locked to http://localhost:5173 in SecurityConfig + application.yml
+- [x] CORS allow-origins = http://localhost:5173 only (verified: SecurityConfig CorsConfigurationSource setAllowedOrigins(List.of("http://localhost:5173")))
 - [x] WebSocket CONNECT requires a valid JWT (Authorization header, validated in
       WebSocketConfig interceptor; invalid/missing token rejected at CONNECT)
 - [x] HTTPS enforced in production (Nginx 443 SSL → 80 redirect, server.ssl in prod profile, deployment docs in DEPLOYMENT.md)
@@ -70,3 +104,10 @@ MEMBER listing members → 200 (granted role) · MEMBER demoting OWNER → 403 �
 MEMBER adding user → 403 · OWNER adding member → 200 (duplicate → 400 "already a
 member") · MEMBER renaming org → 403 · MEMBER deleting org → 403 · no token → 403 ·
 403 body = {"message":"Forbidden"} · unauthenticated org list → empty
+
+## Verification log (2026-10-18, code inspection for T-42)
+Invitation UUIDv4 token + 24h expiry + permitAll accept/decline → confirmed in code ·
+RBAC matrix rows → each backed by @PreAuthorize on the matching controller ·
+Board canView gating on list/get → confirmed · CORS allow-origins localhost:5173 → confirmed ·
+No hardcoded production secrets → confirmed · Live stack probes for invitation accept/decline,
+non-member board access, and full RBAC matrix → [ ] open (no running stack available in this session).

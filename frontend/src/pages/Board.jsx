@@ -1,11 +1,14 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useBoardStore } from '../store/boardStore'
 import { useBoardSocket } from '../hooks/useWebSocket'
 import { usePresence } from '../hooks/usePresence'
 import CardItem from '../components/CardItem'
+import BoardMembers from '../components/BoardMembers'
+import { useAuthStore } from '../store/authStore'
+import { Download, ArrowLeft } from 'lucide-react'
 
 /**
  * Board page: loads lists and cards from the API for the board in the URL,
@@ -14,6 +17,7 @@ import CardItem from '../components/CardItem'
 export default function Board() {
   const { id: boardId } = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const boardTitle = location.state?.title || 'Board'
 
   const lists = useBoardStore((s) => s.lists)
@@ -24,6 +28,7 @@ export default function Board() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [membersOpen, setMembersOpen] = useState(false)
   const [addingFor, setAddingFor] = useState(null) // listId with an open "add card" form
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -39,6 +44,14 @@ export default function Board() {
   const moveCardLocal = useBoardStore((s) => s.moveCard)
   const reorderLocal = useBoardStore((s) => s.reorderLocal)
   const applyRemoteEvent = useBoardStore((s) => s.applyRemoteEvent)
+  const role = useAuthStore((s) => s.role)
+  const workspaceId = location.state?.workspaceId
+  const [docs, setDocs] = useState([])
+  const [docsOpen, setDocsOpen] = useState(false)
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [newDocTitle, setNewDocTitle] = useState('')
+  const [previewDocId, setPreviewDocId] = useState(null)
+  const [workspaceMembers, setWorkspaceMembers] = useState([])
 
   // Realtime sync: apply card events broadcast to this board's topic.
   // Own changes also echo back, which is safe — applyRemoteEvent is idempotent.
@@ -48,6 +61,33 @@ export default function Board() {
 
   // Presence: who is viewing this board right now (avatars in the header)
   const presenceUsers = usePresence(boardId)
+
+  useEffect(() => {
+    if (!membersOpen || !workspaceId) return
+    let cancelled = false
+    api.get(`/workspaces/${workspaceId}/members`).then(res => {
+      if (!cancelled) setWorkspaceMembers(res.data || [])
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [membersOpen, workspaceId])
+
+  const loadDocs = async () => {
+    if (!workspaceId) return
+    setDocsLoading(true)
+    try {
+      const res = await api.get(`/workspaces/${workspaceId}/documents`)
+      const filtered = (res.data || []).filter(d => d.boardId === boardId)
+      setDocs(filtered)
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Could not load documents')
+    } finally {
+      setDocsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (docsOpen) loadDocs()
+  }, [docsOpen, boardId, workspaceId])
 
   /**
    * Drop handler for both cases: moving a card to another column, and
@@ -210,17 +250,17 @@ export default function Board() {
   }
 
   /** Posts a new comment on the card open in the edit dialog. */
-  const submitComment = async () => {
-    const body = commentBody.trim()
-    if (!body || !editingCard) return
-    try {
-      const res = await api.post(`/cards/${editingCard.card.id}/comments`, { body })
-      setComments((c) => [...c, res.data])
-      setCommentBody('')
-    } catch (e) {
-      setCommentsError(e?.response?.data?.message || 'Could not add the comment')
+    const submitComment = async () => {
+      const body = commentBody.trim()
+      if (!body || !editingCard) return
+      try {
+        const res = await api.post(`/cards/${editingCard.card.id}/comments`, { body })
+        setComments((c) => [...c, res.data])
+        setCommentBody('')
+      } catch (e) {
+        setCommentsError(e?.response?.data?.message || 'Could not add the comment')
+      }
     }
-  }
 
   const saveCard = async () => {
     const { listId, card } = editingCard
@@ -247,112 +287,184 @@ export default function Board() {
     }
   }
 
+  const canWrite = role !== 'viewer'
+
+  const createDocument = async () => {
+    if (!workspaceId || !newDocTitle.trim()) return
+    if (role === 'viewer') return
+    try {
+      const res = await api.post(`/workspaces/${workspaceId}/documents`, { title: newDocTitle.trim(), boardId })
+      setDocsOpen(false)
+      window.location.href = `/doc/${res.data.id}`
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Could not create document')
+    }
+  }
+
+  const downloadDocument = async (docId) => {
+    try {
+      const docRes = await api.get(`/documents/${docId}`)
+      const doc = docRes.data
+      const blocksRes = await api.get(`/documents/${docId}/blocks`)
+      const blocks = blocksRes.data || []
+      let md = `# ${doc.title || 'Untitled'}\n\n`
+      blocks.forEach(b => {
+        if (b.type === 'heading') md += `## ${b.text || ''}\n\n`
+        else if (b.type === 'paragraph') md += `${b.text || ''}\n\n`
+        else md += `${b.text || ''}\n\n`
+      })
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(doc.title || 'document').replace(/\s+/g,'-').toLowerCase()}.md`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Could not download document')
+    }
+  }
+
   return (
-    <div className="p-6 bg-neutral-50 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
-        <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold text-neutral-900 tracking-tight">
-          {boardTitle}
-        </motion.h2>
-        {/* live presence: avatar circles for everyone on this board */}
-        <div className="flex -space-x-2 items-center">
-          {presenceUsers.map((p) => (
-            <div
-              key={p.userId}
-              title={p.name}
-              className="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] border-2 border-white uppercase font-mono font-medium"
+      <div className="p-6 bg-background min-h-screen">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => workspaceId ? navigate(`/workspace/${workspaceId}`) : navigate(-1)} className="text-neutral-600 hover:text-neutral-900 p-1" title="Back to workspace">
+              <ArrowLeft size={20} />
+            </button>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold text-zinc-900 tracking-tight">
+              {boardTitle}
+            </motion.h2>
+          </div>
+          {/* live presence: avatar circles for everyone on this board */}
+          <div className="flex -space-x-2 items-center">
+            {presenceUsers.map((p) => (
+              <div
+                key={p.userId}
+                title={p.name}
+                className="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] border-2 border-accent/30 uppercase font-mono font-medium"
+              >
+                {(p.name || '?').slice(0, 1).toUpperCase()}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              onClick={() => { setDocsOpen(true); setError('') }}
+              className="text-sm text-accent font-medium hover:underline"
             >
-              {(p.name || '?').slice(0, 1).toUpperCase()}
-            </div>
-          ))}
+              Documents
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              onClick={() => { setMembersOpen(true); setError('') }}
+              className="text-sm text-accent font-medium hover:underline"
+            >
+              Members
+            </motion.button>
+          </div>
         </div>
-      </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-700 text-sm rounded-lg">{error}</div>
+      )}
+
+      {role === 'viewer' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg" role="status">
+          You are a viewer for this workspace. You can view this board, but you cannot make changes.
+        </div>
       )}
 
       {loading ? (
         <div className="text-neutral-500">Loading board…</div>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-4">
-          {lists.map((list) => (
-            <motion.div
-              key={list.id}
-              layout
-              className="min-w-[260px] bg-white rounded-xl shadow-soft border border-neutral-200 p-3 transition-all"
-              onDragOver={(e) => {
-                e.preventDefault()
-                setDragOverList(list.id)
-              }}
-              onDragLeave={() => setDragOverList((cur) => (cur === list.id ? null : cur))}
-              onDrop={() => dropCard(list.id)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-neutral-800 text-sm">
-                  {list.title}
-                  <span className="text-xs text-neutral-400 ml-1">({list.cards.length})</span>
-                </h3>
-              </div>
-
-              <div className="space-y-2 min-h-[100px]">
-                {list.cards.map((card, cardIndex) => (
-                  <motion.div
-                    key={card.id}
-                    layout
-                    whileHover={{ scale: 1.01 }}
-                    draggable
-                    onDragStart={() => setDragging({ cardId: card.id, fromListId: list.id })}
-                    onDragEnd={() => setDragging(null)}
-                    onDragOver={(e) => cardDragOver(e, list, cardIndex)}
-                    className="card-base p-3 cursor-pointer mb-1"
-                    onClick={() => openEditCard(list.id, card)}
-                  >
-                    <CardItem title={card.title} description={card.description} />
-                  </motion.div>
-                ))}
-              </div>
-
-              {addingFor === list.id ? (
-                <div className="mt-3 space-y-2">
-                  <input
-                    autoFocus
-                    className="input-field"
-                    placeholder="Card title"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && submitCard(list.id)}
-                  />
-                  <textarea
-                    className="input-field"
-                    placeholder="Description (optional)"
-                    rows={2}
-                    value={newDesc}
-                    onChange={(e) => setNewDesc(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => submitCard(list.id)}
-                      className="flex-1 btn-primary"
+                  {lists.map((list) => (
+                    <motion.div
+                      key={list.id}
+                      layout
+                      className="min-w-[260px] bg-background rounded-lg border border-border p-3 transition-all"
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setDragOverList(list.id)
+                      }}
+                      onDragLeave={() => setDragOverList((cur) => (cur === list.id ? null : cur))}
+                      onDrop={() => dropCard(list.id)}
                     >
-                      Add card
-                    </button>
-                    <button onClick={() => setAddingFor(null)} className="flex-1 btn-ghost text-neutral-500 hover:bg-neutral-100">
-                      Cancel
-                    </button>
-                  </div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-zinc-800 text-sm">
+                          {list.title}
+                          <span className="text-xs text-zinc-400 ml-1">({list.cards.length})</span>
+                        </h3>
+                      </div>
+
+                      <div className="space-y-2 min-h-[100px]">
+                        {list.cards.map((card, cardIndex) => (
+                          <motion.div
+                            key={card.id}
+                            layout
+                            whileHover={{ scale: 1.01 }}
+                            draggable={canWrite}
+                            onDragStart={() => setDragging({ cardId: card.id, fromListId: list.id })}
+                            onDragEnd={() => setDragging(null)}
+                            onDragOver={(e) => cardDragOver(e, list, cardIndex)}
+                            className="rounded-xl p-3 cursor-pointer mb-1 bg-card border border-border hover:bg-accent/5 transition-color"
+                            onClick={() => { if (canWrite) openEditCard(list.id, card) }}
+                          >
+                            <CardItem title={card.title} description={card.description} />
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {canWrite ? (
+                        addingFor === list.id ? (
+                          <div className="mt-3 space-y-2">
+                            <input
+                              autoFocus
+                              className="input-field placeholder-zinc-400"
+                              placeholder="Card title"
+                              value={newTitle}
+                              onChange={(e) => setNewTitle(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && submitCard(list.id)}
+                            />
+                            <textarea
+                              className="input-field placeholder-zinc-400"
+                              placeholder="Description (optional)"
+                              rows={2}
+                              value={newDesc}
+                              onChange={(e) => setNewDesc(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => submitCard(list.id)}
+                                className="flex-1 btn-primary"
+                              >
+                                Add card
+                              </button>
+                              <button
+                                onClick={() => setAddingFor(null)}
+                                className="flex-1 btn-ghost text-zinc-400 hover:bg-background"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            onClick={() => openAddForm(list.id)}
+                            className="mt-3 w-full text-sm text-accent font-medium hover:underline"
+                          >
+                            + Add card
+                          </motion.button>
+                        )
+                      ) : null}
+                    </motion.div>
+                  ))}
                 </div>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => openAddForm(list.id)}
-                  className="mt-3 w-full text-sm text-brand-600 font-medium hover:underline"
-                >
-                  + Add card
-                </motion.button>
-              )}
-            </motion.div>
-          ))}
-        </div>
       )}
 
       {/* Edit card dialog (inline modal) */}
@@ -394,7 +506,7 @@ export default function Board() {
                 ) : (
                   comments.map((c) => (
                     <div key={c.id} className="text-sm bg-neutral-50 rounded-lg p-2">
-                      <div className="text-xs text-neutral-400 mb-1">{c.authorId || 'user'}</div>
+                      <div className="text-xs text-neutral-400 mb-1">{c.authorName || c.authorId || 'user'}</div>
                       {c.body}
                     </div>
                   ))
@@ -418,12 +530,16 @@ export default function Board() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={saveCard} className="flex-1 btn-primary">
-                Save
-              </button>
-              <button onClick={deleteCard} className="px-4 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50">
-                Delete
-              </button>
+              {canWrite ? (
+                <>
+                  <button onClick={saveCard} className="flex-1 btn-primary">
+                    Save
+                  </button>
+                  <button onClick={deleteCard} className="px-4 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50">
+                    Delete
+                  </button>
+                </>
+              ) : null}
               <button onClick={() => setEditingCard(null)} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-100">
                 Cancel
               </button>
@@ -431,6 +547,62 @@ export default function Board() {
           </motion.div>
         </div>
       )}
+
+      {docsOpen && workspaceId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4" onClick={() => setDocsOpen(false)}>
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="bg-white rounded-2xl shadow-card-hover p-6 w-full max-w-md border border-neutral-100" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg text-neutral-900">Documents for this board</h3>
+              <button onClick={()=>setDocsOpen(false)} className="text-neutral-400 hover:text-neutral-600">✕</button>
+            </div>
+            {docsLoading ? <div className="text-neutral-500 text-sm">Loading…</div> : (
+              <>
+                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                  {docs.length===0 ? <div className="text-neutral-400 text-sm">No documents yet.</div> : docs.map(d=>(
+                    <div key={d.id} className="p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 flex items-center justify-between">
+                      <div className="cursor-pointer flex-1" onClick={()=>{setPreviewDocId(d.id)}}>
+                        <div className="font-medium text-sm">{d.title || 'Untitled'}</div>
+                        <div className="text-xs text-neutral-500">{new Date(d.updatedAt||d.createdAt).toLocaleString()}</div>
+                      </div>
+                      <button onClick={(e)=>{e.stopPropagation(); downloadDocument(d.id)}} className="ml-3 text-neutral-500 hover:text-neutral-800" title="Download"><Download size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+                {role!=='viewer' && (
+                  <div className="flex gap-2">
+                    <input className="flex-1 border border-neutral-300 p-2 rounded-lg text-sm" placeholder="New document title" value={newDocTitle} onChange={e=>setNewDocTitle(e.target.value)} onKeyDown={e=>e.key==='Enter'&&createDocument()} />
+                    <button onClick={createDocument} className="px-4 py-2 rounded-lg text-sm bg-brand-600 text-white">Create</button>
+                  </div>
+                )}
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {previewDocId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setPreviewDocId(null)}>
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="bg-white rounded-2xl shadow-card-hover p-6 w-full max-w-5xl h-[80vh] border border-neutral-100 flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h3 className="font-semibold text-lg text-neutral-900">Document</h3>
+              <div className="flex items-center gap-3">
+                <button onClick={()=>downloadDocument(previewDocId)} className="text-neutral-500 hover:text-neutral-800" title="Download"><Download size={18} /></button>
+                <button onClick={()=>setPreviewDocId(null)} className="text-neutral-400 hover:text-neutral-600 text-xl p-2">✕</button>
+              </div>
+            </div>
+            <div className="flex-1 rounded-lg overflow-hidden bg-neutral-50">
+              <iframe src={`/doc/${previewDocId}?modal=1`} className="w-full h-full border-0" title="Document editor" />
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      <BoardMembers
+        boardId={boardId}
+        open={membersOpen}
+        onClose={() => setMembersOpen(false)}
+        workspaceMembers={workspaceMembers}
+      />
     </div>
   )
 }

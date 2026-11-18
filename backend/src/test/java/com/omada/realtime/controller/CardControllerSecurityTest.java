@@ -5,8 +5,10 @@ import com.omada.realtime.dto.response.CardResponse;
 import com.omada.realtime.dto.response.WorkspaceResponse;
 import com.omada.realtime.entity.Board;
 import com.omada.realtime.entity.Card;
+import com.omada.realtime.repository.BoardMembershipRepository;
 import com.omada.realtime.repository.BoardRepository;
 import com.omada.realtime.repository.CardRepository;
+import com.omada.realtime.repository.InvitationRepository;
 import com.omada.realtime.security.JwtAuthenticationFilter;
 import com.omada.realtime.security.JwtUtil;
 import com.omada.realtime.security.WorkspaceSecurity;
@@ -22,12 +24,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -53,6 +57,9 @@ class CardControllerSecurityTest {
     @MockBean WorkspaceService workspaceService;
     @MockBean BoardRepository boardRepository;
     @MockBean CardRepository cardRepository;
+    @MockBean StringRedisTemplate redis;
+    @MockBean BoardMembershipRepository boardMembershipRepository;
+    @MockBean InvitationRepository invitationRepository;
 
     static final UUID BOARD_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     static final UUID CARD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
@@ -71,6 +78,9 @@ class CardControllerSecurityTest {
                 .thenReturn(Optional.of(Card.builder().id(CARD_ID).boardId(BOARD_ID.toString()).listId("list-1").build()));
         when(workspaceService.findById(WS))
                 .thenReturn(new WorkspaceResponse(WS, ORG, "ws", ""));
+        var ops = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(ops);
+        when(ops.get(anyString())).thenReturn(null);
     }
 
     private void givenRole(String role) {

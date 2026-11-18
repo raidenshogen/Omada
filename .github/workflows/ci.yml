@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Security rule: no secrets in code — credentials come from repository secrets
+# only, injected via env (e.g. ${{ secrets.SONAR_TOKEN }}). Nothing is
+# hardcoded in this file or in source.
+
 jobs:
+  # ---------------------------------------------------------------- Backend
   build-backend:
-    name: Build Backend Java
+    name: Build Backend (Java 17)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,12 +29,24 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build with Maven
-        run: mvn -B package -DskipTests
+      - name: Build with Maven (skip tests)
+        run: mvn -B package -DskipTests -Djacoco.skip=true
+
+      - name: Upload backend jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+          if-no-files-found: error
 
   test-backend:
     name: Test Backend
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    needs: [build-backend]
     defaults:
       run:
         working-directory: backend
@@ -44,16 +61,31 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Run tests with Maven
-        run: mvn -B test
+      # spring-security-test is declared <scope>test</scope> in backend/pom.xml;
+      # this step proves it resolves on the test classpath.
+      - name: Verify test dependencies resolve (incl. spring-security-test)
+        run: mvn -B dependency:resolve -DincludeScope=test -q
 
-      - name: Upload test results
+      - name: Run tests with Maven
+        run: mvn -B test -Djacoco.skip=${{ contains(matrix.os, 'windows') && 'true' || 'false' }}
+
+      - name: Upload backend test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-test-results
+          name: backend-test-results-${{ matrix.os }}
           path: backend/target/surefire-reports/
+          if-no-files-found: warn
 
+      - name: Upload JaCoCo report (ubuntu only)
+        if: always() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- Frontend
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
@@ -77,15 +109,17 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Upload build artifacts
+      - name: Upload frontend build artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: frontend/dist/
+          if-no-files-found: error
 
   test-frontend:
     name: Run Frontend Tests
     runs-on: ubuntu-latest
+    needs: [build-frontend]
     defaults:
       run:
         working-directory: frontend
@@ -103,16 +137,115 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Run tests (npm test)
         run: npm test
 
-      - name: Upload coverage
+      - name: Upload frontend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
           path: frontend/coverage/
+          if-no-files-found: warn
 
+  # ---------------------------------------------------------------- Secrets
+  secret-scan:
+    name: Scan for Hardcoded Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Assert no hardcoded secrets (env vars only)
+        run: |
+          PATTERN='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|sonar[._-]?token\s*[:=]\s*\S+'
+          if grep -rIE "$PATTERN" backend frontend .github 2>/dev/null; then
+            echo "::error::Hardcoded secret detected — use environment variables / repository secrets only"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------- OWASP
+  owasp-dependency-check:
+    name: OWASP Dependency-Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: OWASP Dependency-Check scan
+        uses: dependency-check/Dependency-Check_Action@v9
+        with:
+          project: 'omada'
+          path: '.'
+          fail-build-on-cvss: 7
+
+      - name: Upload dependency-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- SonarQube
+  sonarqube:
+    name: SonarQube Scan (local Docker CE)
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Tune kernel for Elasticsearch (SonarQube requirement)
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start SonarQube Community (local Docker CE)
+        run: |
+          docker rm -f omada-sonarqube > /dev/null 2>&1 || true
+          docker run -d --name omada-sonarqube -p 9000:9000 -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true sonarqube:community
+
+      - name: Wait for SonarQube to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:9000/api/system/status > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::SonarQube did not become ready"
+          exit 1
+
+      - name: Run SonarQube scanner
+        env:
+          # Secret injected from repository secrets only — never hardcoded
+          SONAR_HOST_URL: http://localhost:9000
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.1.1.3512:sonar \
+            -Dsonar.projectKey=omada \
+            -Dsonar.projectName=Omada \
+            -Dsonar.projectVersion=0.0.1-SNAPSHOT \
+            -Dsonar.sources=backend/src,frontend/src \
+            -Dsonar.tests=backend/src/test,frontend/src \
+            -Dsonar.java.binaries=backend/target/classes \
+            -Dsonar.coverage.jacoco.xmlReportPaths=backend/target/site/jacoco/jacoco.xml \
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info \
+            -Dsonar.exclusions=frontend/src/__tests__/**,backend/src/test/**
+
+      - name: Stop SonarQube container
+        if: always()
+        run: |
+          docker stop omada-sonarqube > /dev/null 2>&1 || true
+          docker rm omada-sonarqube > /dev/null 2>&1 || true
+
+  # ---------------------------------------------------------------- Docker
   build-docker:
     name: Build Docker Images
     runs-on: ubuntu-latest
@@ -131,39 +264,3 @@ jobs:
       - name: Build frontend Docker image
         run: |
           docker build -f frontend/Dockerfile frontend -t omada-frontend:latest || echo "Dockerfile not found, skipping frontend build"
-
-  sonarqube:
-    name: SonarQube Scan
-    runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: .
-          args: >-
-            -Dsonar.projectKey=omada
-            -Dsonar.sources=backend/src,frontend/src
-            -Dsonar.java.binaries=backend/target
-        # Requires SONAR_TOKEN secret + SONAR_HOST_URL secret to be set in repo settings
-
-  owasp-dependency-check:
-    name: OWASP Dependency-Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: OWASP Dependency-Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: 'omada'
-          path: '.'
-          fail-build-on-cvss: 7

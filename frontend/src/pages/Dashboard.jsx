@@ -12,6 +12,7 @@ import ActivityPanel from '../components/ActivityPanel'
  */
 export default function Dashboard() {
   const user = useAuthStore((s) => s.user)
+  const addMembership = useAuthStore((s) => s.addMembership)
   const navigate = useNavigate()
   const [workspaces, setWorkspaces] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,13 +27,18 @@ export default function Dashboard() {
       setLoading(true)
       setError('')
       try {
+        const directWorkspaces = (await api.get('/workspaces/mine')).data || []
         let orgs = (await api.get('/organizations')).data || []
-        if (orgs.length === 0) {
+        if (orgs.length === 0 && directWorkspaces.length === 0) {
           const created = await api.post('/organizations', { name: 'My Org', slug: 'my-org' })
           orgs = [created.data]
         }
-        const orgId = orgs[0].id
-        const ws = (await api.get(`/workspaces?orgId=${encodeURIComponent(orgId)}`)).data || []
+        const orgId = orgs[0]?.id
+        const orgWorkspaces = orgId
+          ? (await api.get(`/workspaces?orgId=${encodeURIComponent(orgId)}`)).data || []
+          : []
+        const ws = [...orgWorkspaces, ...directWorkspaces.filter((direct) =>
+          !orgWorkspaces.some((existing) => existing.id === direct.id))]
         if (!cancelled) setWorkspaces(ws)
       } catch (e) {
         if (!cancelled) setError(e?.response?.data?.message || 'Could not load workspaces')
@@ -55,6 +61,7 @@ export default function Dashboard() {
       const orgId = orgs[0]?.id
       const res = await api.post('/workspaces', { organizationId: orgId, name: newName.trim(), description: '' })
       setWorkspaces((w) => [...w, res.data])
+      addMembership({ workspaceId: res.data.id, role: 'owner' })
       setNewName('')
     } catch (e) {
       setError(e?.response?.data?.message || 'Could not create the workspace')
@@ -112,7 +119,11 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {workspaces.length > 0 && <ActivityPanel workspaceId={workspaces[0].id} />}
+      {workspaces.length > 0 && (
+        <div className="mt-8">
+          <ActivityPanel workspaceId={workspaces[0].id} />
+        </div>
+      )}
     </motion.div>
   )
 }

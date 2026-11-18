@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import api from '../services/api'
-import { LayoutDashboard, LogOut, Briefcase, KanbanSquare, ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useState } from "react"
+import { NavLink, Link, useLocation, useNavigate } from "react-router-dom"
+import { LayoutDashboard, LogOut, ChevronDown, ChevronRight } from "lucide-react"
+import { useAuthStore } from "../store/authStore"
+import api from "../services/api"
+import Avatar from "./Avatar"
+
+const row = "flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-sm transition-colors"
 
 /**
- * Navigation sidebar: the signed-in user's workspaces with their boards,
- * active-route highlighting, and the account section. Dark sidebar with
- * brand accent for the active board.
- * Guests never see it — App.jsx renders it only for authenticated sessions.
+ * Navigation: dashboard, then each workspace with its boards.
+ * App.jsx renders it only for signed-in sessions.
  */
-export default function Sidebar(){
-  const user = useAuthStore(s => s.user)
-  const logout = useAuthStore(s => s.logout)
+export default function Sidebar() {
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -25,12 +25,16 @@ export default function Sidebar(){
     let cancelled = false
     async function load() {
       try {
-        const orgs = (await api.get('/organizations')).data || []
-        if (orgs.length === 0) { if (!cancelled) { setTree([]); setLoaded(true) } return }
-        const workspaces = (await api.get(`/workspaces?orgId=${encodeURIComponent(orgs[0].id)}`)).data || []
+        const directWorkspaces = (await api.get("/workspaces/mine")).data || []
+        const orgs = (await api.get("/organizations")).data || []
+        const orgWorkspaces = orgs[0]
+          ? (await api.get(`/workspaces?orgId=${encodeURIComponent(orgs[0].id)}`)).data || []
+          : []
+        const workspaces = [...orgWorkspaces, ...directWorkspaces.filter((direct) =>
+          !orgWorkspaces.some((existing) => existing.id === direct.id))]
         const withBoards = await Promise.all(workspaces.map(async (ws) => {
           const boards = (await api.get(`/workspaces/${ws.id}/boards`)).data || []
-          return { id: ws.id, name: ws.name, boards: boards.map(b => ({ id: b.id, title: b.title })) }
+          return { id: ws.id, name: ws.name, boards: boards.map((b) => ({ id: b.id, title: b.title })) }
         }))
         if (!cancelled) { setTree(withBoards); setLoaded(true) }
       } catch {
@@ -41,75 +45,80 @@ export default function Sidebar(){
     return () => { cancelled = true }
   }, [location.pathname])
 
-  const handleLogout = () => {
-    logout()
-    navigate('/')
-  }
+  const handleLogout = () => { logout(); navigate("/") }
 
   return (
-    <motion.aside initial={{x:-250}} animate={{x:0}} className="w-64 bg-neutral-900 text-white h-screen p-4 flex flex-col overflow-y-auto shadow-sidebar">
-      <h1 className="text-xl font-bold mb-6 tracking-tight">Omada</h1>
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4">
+      <Link to="/dashboard" className="mb-6 px-2.5 font-serif text-2xl font-semibold tracking-tight text-ink">
+        Omada
+      </Link>
 
-      <nav className="space-y-1 flex-1">
+      <nav aria-label="Main" className="flex-1 space-y-0.5">
         <NavLink
           to="/dashboard"
-          className={({isActive}) => `flex items-center gap-3 p-2 rounded-lg transition ${isActive ? 'bg-brand-600/20 text-brand-100' : 'hover:bg-neutral-800 text-neutral-300'}`}
+          className={({ isActive }) => `${row} ${isActive ? "bg-signal/10 font-medium text-signal" : "text-ink-soft hover:bg-ink/5"}`}
         >
-          <LayoutDashboard size={18} />
-          <span>Dashboard</span>
+          <LayoutDashboard size={16} />
+          Dashboard
         </NavLink>
 
-        <div className="pt-4 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-          Workspaces
-        </div>
+        <div className="px-2.5 pb-1 pt-5 text-xs font-medium text-ink-faint">Workspaces</div>
 
         {!loaded ? (
-          <div className="px-2 text-sm text-neutral-500">Loading…</div>
+          <div className="px-2.5 text-sm text-ink-faint">Loading…</div>
         ) : tree.length === 0 ? (
-          <div className="px-2 text-sm text-neutral-500">No workspaces yet</div>
+          <div className="px-2.5 text-sm text-ink-faint">No workspaces yet. Create one from the dashboard.</div>
         ) : (
-          tree.map(ws => (
-            <div key={ws.id} className="mb-1">
-              <button
-                onClick={() => setCollapsed(c => ({ ...c, [ws.id]: !c[ws.id] }))}
-                className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-neutral-800 text-neutral-200 text-sm transition-colors"
-              >
-                {collapsed[ws.id] ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                <Briefcase size={15} />
-                <span className="truncate">{ws.name}</span>
-              </button>
-              {!collapsed[ws.id] && (
-                <div className="ml-6 space-y-0">
-                  {ws.boards.length === 0 && (
-                    <div className="px-2 py-1 text-xs text-neutral-500">No boards</div>
-                  )}
-                  {ws.boards.map(b => {
-                    const active = location.pathname === `/board/${b.id}`
-                    return (
-                      <Link
-                        key={b.id}
-                        to={`/board/${b.id}`}
-                        className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${active ? 'bg-brand-600/20 text-brand-100' : 'hover:bg-neutral-800 text-neutral-300'}`}
-                      >
-                        <KanbanSquare size={14} />
-                        <span className="truncate">{b.title}</span>
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          ))
+          tree.map((ws) => {
+            const open = !collapsed[ws.id]
+            return (
+              <div key={ws.id}>
+                <button
+                  onClick={() => setCollapsed((c) => ({ ...c, [ws.id]: !c[ws.id] }))}
+                  aria-expanded={open}
+                  className={`${row} font-medium text-ink hover:bg-ink/5`}
+                >
+                  {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span className="truncate">{ws.name}</span>
+                </button>
+                {open && (
+                  <div className="ml-[18px] border-l border-line pl-2">
+                    {ws.boards.length === 0 && <div className="px-2.5 py-1 text-xs text-ink-faint">No boards yet</div>}
+                    {ws.boards.map((b) => {
+                      const active = location.pathname === `/board/${b.id}`
+                      return (
+                        <Link
+                          key={b.id}
+                          to={`/board/${b.id}`}
+                          state={{ workspaceId: ws.id, title: b.title }}
+                          aria-current={active ? "page" : undefined}
+                          className={`${row} ${active ? "bg-signal/10 font-medium text-signal" : "text-ink-soft hover:bg-ink/5"}`}
+                        >
+                          <span className="truncate">{b.title}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })
         )}
       </nav>
 
-      <div className="border-t border-neutral-800 pt-4 mt-auto">
-        <div className="text-sm text-neutral-400 mb-2 truncate">{user?.email || 'Signed in'}</div>
-        <button onClick={handleLogout} className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-neutral-800 transition-colors text-neutral-300">
-          <LogOut size={18} />
-          <span>Logout</span>
+      <div className="mt-4 border-t border-line pt-4">
+        <Link to="/profile" className="mb-2 flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-ink/5">
+          <Avatar id={user?.id} name={user?.name || user?.email} size={28} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-ink">{user?.name || "Signed in"}</div>
+            <div className="truncate text-xs text-ink-faint">{user?.email}</div>
+          </div>
+        </Link>
+        <button onClick={handleLogout} className={`${row} text-ink-soft hover:bg-ink/5`}>
+          <LogOut size={16} />
+          Log out
         </button>
       </div>
-    </motion.aside>
+    </aside>
   )
 }
